@@ -233,6 +233,49 @@
   }
   .ready .hint { opacity: 1; }
 
+  /* ---------- welcome card and gesture coach ---------- */
+  .welcome {
+    position: fixed; z-index: 14;
+    left: 50%; top: calc(24px + env(safe-area-inset-top, 0px));
+    width: min(500px, calc(100vw - 680px));
+    min-width: 340px;
+    padding: 16px 20px 16px;
+    border-radius: 16px;
+    background: rgba(10, 16, 30, .72);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 20px 50px -24px rgba(0, 0, 0, .8), 0 0 0 1px rgba(52, 210, 126, .06);
+    opacity: 0; transform: translate(-50%, -10px);
+    transition: opacity .6s, transform .6s cubic-bezier(.2, .8, .2, 1);
+    pointer-events: none;
+  }
+  .welcome.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  [data-mode="dive"] .welcome, [data-mode="rise"] .welcome, .focus .welcome { opacity: 0 !important; pointer-events: none !important; }
+  .welcome-on .hint { opacity: 0 !important; }
+  .welcome p { margin: 0; font-size: .97rem; line-height: 1.55; color: #C9D0DB; }
+  .welcome p b { color: var(--ink); font-weight: 600; }
+  .welcome .inline {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    color: var(--forest); font-weight: 600; border-bottom: 1px solid rgba(52, 210, 126, .5);
+  }
+  .w-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 14px; }
+  .w-hand {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px 8px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(52, 210, 126, .6);
+    background: linear-gradient(90deg, rgba(52, 210, 126, .22), rgba(52, 210, 126, .06));
+    font-weight: 600; font-size: .9rem;
+    box-shadow: 0 0 24px -8px rgba(52, 210, 126, .6);
+  }
+  .w-hand:hover { background: rgba(52, 210, 126, .3); }
+  .w-hand span { font-size: 1.05rem; }
+  .w-skip { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: .86rem; padding: 4px 0; }
+  .w-skip:hover { color: var(--ink); }
+  .w-steps { display: flex; gap: 6px; margin-left: auto; }
+  .w-steps i { width: 18px; height: 3px; border-radius: 2px; background: var(--line); }
+  .w-steps i.on { background: var(--forest); box-shadow: 0 0 8px var(--forest); }
+  .w-emoji { font-size: 1.3rem; margin-right: 6px; vertical-align: -2px; }
+
   /* ---------- altimeter during the dive ---------- */
   .alt {
     position: fixed; left: 50%; top: 50%; z-index: 24;
@@ -375,6 +418,8 @@
     .readouts { gap: 18px; }
     .readouts div:nth-child(2) { display: none; }
     .zoom { top: auto; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    .welcome { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 32px); min-width: 0; transform: translate(-50%, 10px); }
+    .welcome.show { transform: translate(-50%, 0); }
     .zoom button { min-width: 36px; height: 36px; }
     .readouts b { font-size: 1.05rem; }
     .readouts span { font-size: .72rem; }
@@ -447,6 +492,8 @@
     <p class="note" id="note">You’re in the Chicago region, one box per 30 m square. Sand is cropland: sweep across it to retire it.</p>
   </div>
 </section>
+
+<div class="welcome" id="welcome" role="status" aria-live="polite"></div>
 
 <p class="hint" id="hint">Drag to spin the planet. Click a place to see the work there.</p>
 
@@ -590,6 +637,18 @@ const LOCATIONS = [
   { id: "oio", name: "Oio, Guinea-Bissau", lat: 12.25, lon: -15.25, facet: "design", kind: "Kora Habitat studio",
     blurb: "Spring 2022 studio at Harvard GSD on community cultural heritage and materiality in Oio, with Studio High Pass. Also a teaching assistant for the Harvard GSD option studio on Guinea-Bissau that fall.",
     projects: ["kora"] },
+  { id: "newyork", name: "New York", lat: 40.71, lon: -74.0, facet: "carbon", kind: "AAG Annual Meeting 2027",
+    blurb: "Presenting “Toward strategic land change: a constraint-aware allocation model for land-based net zero,” the method behind Which Acres?, February 2027.",
+    projects: ["which-acres"] },
+  { id: "sf", name: "San Francisco", lat: 37.77, lon: -122.42, facet: "carbon", kind: "AAG Annual Meeting 2026",
+    blurb: "Presented “The 2029 carbon tipping point: integrated strategies needed to maintain urban vegetation carbon sinks in Illinois,” March 2026.",
+    projects: ["urban-green"] },
+  { id: "cincinnati", name: "Cincinnati", lat: 39.1, lon: -84.51, facet: "ai", kind: "CELA Annual Conference 2026",
+    blurb: "Presented a multi-stage parallel processing and machine learning pipeline for regional biodiversity assessment and protection, March 2026.",
+    projects: ["habitat"] },
+  { id: "portland", name: "Portland, OR", lat: 45.52, lon: -122.68, facet: "carbon", kind: "CELA Annual Conference 2025",
+    blurb: "Co-presented the carbon sequestration potential of urban landscapes across Illinois counties, March 2025.",
+    projects: [] },
   { id: "sanjuan", name: "San Juan, Puerto Rico", lat: 18.47, lon: -66.1, facet: "design", kind: "Greens on Wheels",
     blurb: "An undergraduate project on food and flooding that won the Sasaki Day Award in 2020 and became a book chapter five years later.",
     projects: ["greens"] },
@@ -603,16 +662,16 @@ const LOCATIONS = [
     blurb: "Built the geological, hydrological, and cultural database for the Algarvensis UNESCO Global Geopark application (Loulé, Silves, and Albufeira) and surveyed historic water infrastructure with the Municipality of Silves.",
     projects: [] },
   { id: "oxford", name: "Oxford", lat: 51.75, lon: -1.26, facet: "carbon", kind: "City+ 2025 conference",
-    blurb: "Presented a comparison of local climate zones, net primary production, and equity in Cook County and Singapore.",
+    blurb: "Presented “Form, function, and equity in the urban carbon cycle,” a comparative study of local climate zones, net primary production, and socioeconomic impacts in Cook County and Singapore, September 2025.",
     projects: ["urban-green"] },
   { id: "gothenburg", name: "Gothenburg", lat: 57.71, lon: 11.97, facet: "carbon", kind: "Regional Studies Association 2026",
-    blurb: "Presented how eco-urbanism is rescaled between ecological ambition and free-trade-port imperatives in Hainan.",
+    blurb: "Presented “Between ecological ambition and free trade port imperatives: rescaling eco-urbanism in Jiangdong New Area through intra-regional coordination,” June 2026.",
     projects: ["ecocity"] },
   { id: "stockholm", name: "Stockholm", lat: 59.33, lon: 18.07, facet: "ai", kind: "KTH Royal Institute of Technology",
     blurb: "Collaboration on AI-powered knowledge integration for carbon-neutral cities, and a co-developed machine learning platform for urban carbon assessment.",
     projects: [] },
   { id: "lesvos", name: "Lesvos, Greece", lat: 39.11, lon: 26.55, facet: "finance", kind: "City+ 2026 conference",
-    blurb: "Presented multi-objective optimization of agricultural land management, balancing farm returns with conservation.",
+    blurb: "Presented “Multi-objective optimization of agricultural land management: balancing economic returns with environmental conservation,” July 2026.",
     projects: ["hedge"] },
   { id: "beijing", name: "Beijing", lat: 39.9, lon: 116.4, facet: "practice", kind: "Turenscape",
     blurb: "Summer internship at Turenscape, 2018: an early start in ecological landscape design.",
@@ -628,8 +687,6 @@ const LOCATIONS = [
   { id: "singapore", name: "Singapore", lat: 1.35, lon: 103.82, facet: "ai", kind: "National University of Singapore",
     blurb: "Co-developed a machine learning framework and data platform for urban carbon assessment, and a Cook County versus Singapore comparison of the urban carbon cycle.",
     projects: ["urban-green"] },
-  { id: "taipei", name: "Taipei", lat: 25.03, lon: 121.56, facet: "ai", kind: "National Taiwan University",
-    blurb: "Research collaboration between the LEAM Lab and National Taiwan University.", projects: [] },
 ];
 
 /* =========================================================
@@ -1043,6 +1100,7 @@ function movePointer(x, y) {
   else if (mode === "grid") { sc.tTheta -= P.vx * 0.006; sc.tPhi = clamp(sc.tPhi - P.vy * 0.004, 0.5, 1.22); }
 }
 function pressPointer() {
+  dismissWelcome();
   P.down = true;
   if (openId) { closePanel(); return; }
   if (mode !== "globe" && mode !== "grid") return;
@@ -1078,6 +1136,7 @@ function zoomFit() {
   else if (mode === "grid") { sc.tRadius = sHome; sc.tTarget.set(-N * 0.06, 0, 0); sc.tPhi = 0.98; }
 }
 document.getElementById("zoomCtl").addEventListener("click", e => {
+  if (!P.hand) dismissWelcome();
   const b = e.target.closest("[data-zoom]"); if (!b) return;
   if (b.dataset.zoom === "in") zoomBy(0.8);
   else if (b.dataset.zoom === "out") zoomBy(1.25);
@@ -1196,6 +1255,7 @@ function fmtAlt(m) { return m >= 10000 ? `${fmt(m / 1000)} km` : m >= 1000 ? `${
 function shortest(from, to) { let d = (to - from) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return from + d; }
 function startDive() {
   if (mode !== "globe") return;
+  if (P.hand) coachEvent("open"); else dismissWelcome();
   if (openId) closePanel();
   releasePointer();
   G.startRx = G.rx; G.startRy = G.ry; G.startDist = G.dist;
@@ -1309,6 +1369,13 @@ const CV = [
     "<b>Wang</b>, Tao, & Deal. Street-level climate action: transportation emissions and green infrastructure solutions. <i>Frontiers in Built Environment</i>, 2025. <a href=\"https://doi.org/10.3389/fbuil.2025.1678169\" target=\"_blank\" rel=\"noopener\">DOI</a>",
     "<b>Wang</b>, Deal, & Hakim. Data-driven multi-scale integration of transportation networks and greenhouse gas emissions. <i>Land</i>, 2025. <a href=\"https://doi.org/10.3390/land14040807\" target=\"_blank\" rel=\"noopener\">DOI</a>",
     "Zeng, <b>Wang</b>, Lai, & Deal. The carbon sequestration potential of urban landscapes: a state-wide assessment in Illinois. <i>Journal of Digital Landscape Architecture</i>, 2024. <a href=\"https://doi.org/10.14627/537752019\" target=\"_blank\" rel=\"noopener\">DOI</a>"]],
+  ["Under review", [
+    "<b>Wang, J.</b>, Tao, Z., Deal, B., & Zhu, S. Temporal carbon flux of urban vegetation: is urban vegetation green?",
+    "<b>Wang, J.</b>, Deal, B., Zhu, S., & Tao, Z. AI-driven discovery reveals critical thresholds and persistent inequities in urban sustainability.",
+    "<b>Wang, J.</b>, & Xiao, S. Embedded but unsupported: the regional coordination paradox of eco-city governance.",
+    "Tao, Z., Fernandez, M., & <b>Wang, J.</b> Who is warming in Chicago? Social vulnerability, Latino communities, and the redistribution of urban heat, 2010–2024.",
+    "Chakraborty, S., Wu, C.-C., <b>Wang, J.</b>, Chang, C.-Y., Barton, A., & Sullivan, W. C. Household density and family functioning: moving from risk documentation to intervention-relevant research.",
+    "Chen, S., Yan, N., Deal, B., Lin, Q., Ma, C., & <b>Wang, J.</b> Impact of agricultural heritage designation on terraced landscapes in China: a combined OLS and SDID approach."]],
   ["Book chapters and report", [
     "<b>Wang</b>, Deal, Gu, Pang, & Tao. Layers, not rings: geospatial modelling for peri-urban transitions in a polycrisis era. In <i>Peri-Urban Transitions</i>, Routledge, forthcoming.",
     "<b>Wang</b>. Greens on wheels: food, movable resources, urban responses. In <i>Shelter in Place, San Juan Workshop</i>, 2025.",
@@ -1320,12 +1387,18 @@ const CV = [
     "<b>Greens on Wheels</b>, San Juan, Puerto Rico. UIUC, Spring 2020. <span>Sasaki Day Award; book chapter 2025</span>",
     "<b>Urban Flux</b>, Calumet region, Illinois and Indiana. UIUC, Fall 2019. <span>ILASLA Merit Award, 2020</span>",
     "<b>The Tear</b>, Baoling River estuary, Wenchang, Hainan. Professional and individual project, 2019"]],
-  ["Talks and conferences", [
-    "<b>Invited speaker</b>, FAO World Food Forum 2025, Sanya, China",
-    "<b>Invited presentation</b> (co-author), U.S. Climate Alliance, Washington, DC, 2025",
-    "AAG Annual Meeting, New York, 2027 (Which Acres?) and San Francisco, 2026 (the 2029 carbon tipping point)",
-    "City+ 2026, Lesvos; Regional Studies Association 2026, Gothenburg; Urban Affairs Association 2026, Chicago; CELA 2026, Cincinnati",
-    "City+ 2025, University of Oxford; CELA 2025, Portland"]],
+  ["Invited talks", [
+    "<b>Wang, J.</b> Unlocking carbon secrets in farmland: how land use management can advance carbon neutrality in agricultural systems. Invited speaker, World Food Forum 2025, Global Youth Innovation and Sustainable Agriculture Side Event, FAO, Sanya, China. October 2025.",
+    "Heavisides, T., Deal, B., Lai, S., <b>Wang, J.</b>, Ask, S., Pang, B., & Wolfenberger, J. Illinois Natural and Working Lands Plus climate plan: geospatial analysis and modeling. Invited presentation, U.S. Climate Alliance, Washington, DC. March 2025."]],
+  ["Conference presentations", [
+    "<b>Wang, J.</b>, Zhu, S., & Deal, B. Toward strategic land change: a constraint-aware allocation model for land-based net zero. AAG Annual Meeting, New York, NY. February 2027.",
+    "<b>Wang, J.</b>, Zhu, S., & Deal, B. Multi-objective optimization of agricultural land management: balancing economic returns with environmental conservation. City+2026 International Conference on Interdisciplinary Urban Studies, Mytilene, Lesvos, Greece. July 2026.",
+    "<b>Wang, J.</b>, & Xiao, S. Between ecological ambition and free trade port imperatives: rescaling eco-urbanism in Jiangdong New Area through intra-regional coordination. Regional Studies Association Annual Conference, Gothenburg, Sweden. June 2026.",
+    "<b>Wang, J.</b>, & Tao, Z. Multi-objective Bayesian optimization for sustainable urban land use planning with enhanced socioeconomic features: the case of Chicago. 54th Annual Meeting of the Urban Affairs Association, Chicago, IL. April 2026.",
+    "<b>Wang, J.</b>, Tao, Z., & Deal, B. The 2029 carbon tipping point: integrated strategies needed to maintain urban vegetation carbon sinks in Illinois. AAG Annual Meeting, San Francisco, CA. March 2026.",
+    "<b>Wang, J.</b>, & Deal, B. Multi-stage parallel processing and machine learning pipeline for regional biodiversity assessment and protection. CELA Annual Conference, Cincinnati, OH. March 2026.",
+    "<b>Wang, J.</b>, & Wu, Y. Form, function, and equity in the urban carbon cycle: a comparative study of local climate zones, net primary production, and socioeconomic impacts in Cook County, IL, and Singapore. City+2025 Conference, University of Oxford, United Kingdom. September 2025.",
+    "Zeng, Y., <b>Wang, J.</b>, & Deal, B. Understanding the carbon sequestration potential in urban landscapes: the case study of Illinois counties. CELA Annual Conference, Portland, OR. March 2025."]],
   ["Teaching", [
     "<b>Guest lecturer</b>, “Every Landscape Is a Carbon Ledger,” LA 437, FA 2026; “Vector Data Collection and Processing,” LA 387, SP 2024",
     "<b>Teaching assistant</b>, LA 437 Regional Design Studio (FA 2025); UP/LA 480 Sustainable Design Principles (SP 2024, SP 2025); LA 387 Findings of Energy in Landscape (SP 2024); Harvard GSD STU 1401 Canary in the Mine (FA 2022)",
@@ -1364,6 +1437,7 @@ function openProfile() {
 }
 document.getElementById("profileBtn").addEventListener("click", openProfile);
 function openPlace(id) {
+  if (P.hand) coachEvent("open"); else dismissWelcome();
   const L = LOCATIONS.find(l => l.id === id); openId = "place:" + id;
   const html = `<p class="p-top">${esc(FACETS[L.facet].label)}</p><h2 id="pTitle">${esc(L.name)}</h2><p class="p-meta">${esc(L.kind)}</p>
     <p class="p-blurb">${esc(L.blurb)}</p>${L.projects.map(pid => projectHTML(pid, true)).join("")}
@@ -1373,6 +1447,7 @@ function openPlace(id) {
   G.trx = L.lat * Math.PI / 180 * 0.8; G.try = shortest(G.ry, -L.lon * Math.PI / 180); G.tdist = homeDist() * 0.85;
 }
 function openProject(id) {
+  if (P.hand) coachEvent("open");
   openId = "proj:" + id;
   showPanel(projectHTML(id, false), FACETS[PROJECTS[id].facet].hue);
   const b = pillars.find(x => x.id === id);
@@ -1535,8 +1610,72 @@ G.tdist = homeDist();
 (async () => {
   try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch {}
   document.body.classList.add("ready");
+  setTimeout(showWelcome, reduceMotion ? 400 : 2600);
   requestAnimationFrame(frame);
 })();
+
+/* =========================================================
+   8b. Welcome card and gesture coach
+   ========================================================= */
+const welcome = document.getElementById("welcome");
+let cardState = "none"; // none | welcome | waiting | coach
+function setCard(html, state) {
+  welcome.innerHTML = html; cardState = state;
+  welcome.classList.add("show"); document.body.classList.add("welcome-on");
+}
+function hideCard() {
+  welcome.classList.remove("show"); document.body.classList.remove("welcome-on"); cardState = "none";
+}
+function showWelcome() {
+  if (cardState !== "none" || mode !== "globe" || openId || P.hand) return;
+  setCard(`<p><b>Hi, I’m Jiajia.</b> Every light on this planet is a place my work has taken me. Spin it, or <button type="button" class="inline" data-w="dive">dive in</button>. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
+    <div class="w-actions"><button type="button" class="w-hand" data-w="hand"><span>✋</span>Try it with your hand</button>
+    <button type="button" class="w-skip" data-w="skip">I’ll use my mouse</button></div>`, "welcome");
+}
+function dismissWelcome() { if (cardState === "welcome") hideCard(); }
+welcome.addEventListener("click", e => {
+  const b = e.target.closest("[data-w]"); if (!b) return;
+  const w = b.dataset.w;
+  if (w === "dive") { hideCard(); startDive(); }
+  else if (w === "skip") { if (cardState === "coach") finishCoach(true); else hideCard(); }
+  else if (w === "hand") {
+    setCard(`<p><span class="w-emoji">📷</span><b>Allow the camera</b> when your browser asks, then raise one hand in front of it. Nothing is recorded or sent anywhere.</p>
+      <div class="w-actions"><button type="button" class="w-skip" data-w="skip">Never mind</button></div>`, "waiting");
+    if (!running) startBtn.click();
+  }
+});
+
+const COACH = [
+  { until: "move", html: `<span class="w-emoji">👋</span><b>Oh, hi! I can see your hand.</b> Move it around: the ring follows the point between your thumb and index finger.` },
+  { until: "drag", html: `<span class="w-emoji">🤏</span><b>Now pinch</b> your thumb and index finger together, and drag to spin the planet.` },
+  { until: "open", html: `<span class="w-emoji">✨</span><b>Pinch any glowing place</b> to open it, or pinch <b>Chicago</b> to dive into the 30 m grid.` },
+];
+let coachStep = -1, coachMove = 0, coachDrag = 0, coachDone = false;
+function renderCoach() {
+  const dots = COACH.map((_, k) => `<i class="${k <= coachStep ? "on" : ""}"></i>`).join("");
+  setCard(`<p>${COACH[coachStep].html}</p><div class="w-actions"><button type="button" class="w-skip" data-w="skip">Skip the tour</button><span class="w-steps">${dots}</span></div>`, "coach");
+}
+function startCoach() {
+  if (coachDone || coachStep >= 0 || mode === "dive" || mode === "rise") { if (cardState === "waiting") hideCard(); return; }
+  coachStep = 0; coachMove = coachDrag = 0; renderCoach();
+}
+function finishCoach(skipped) {
+  coachDone = true; coachStep = -1;
+  if (skipped || openId) { hideCard(); return; }
+  setCard(`<p><span class="w-emoji">🙌</span><b>You’ve got it.</b> Pinch + or − to zoom, and enjoy exploring.</p>`, "coach");
+  setTimeout(() => { if (cardState === "coach") hideCard(); }, 2600);
+}
+function coachEvent(type, amount = 0) {
+  if (coachStep < 0 || coachDone) return;
+  const step = COACH[coachStep];
+  if (type === "open") { finishCoach(false); return; }
+  if (step.until === "move" && type === "move") coachMove += amount;
+  if (step.until === "drag" && type === "drag") coachDrag += amount;
+  if ((step.until === "move" && coachMove > 450) || (step.until === "drag" && coachDrag > 140)) {
+    coachStep++;
+    if (coachStep >= COACH.length) finishCoach(false); else renderCoach();
+  }
+}
 
 /* =========================================================
    9. Hand gestures (MediaPipe Hand Landmarker)
@@ -1578,6 +1717,7 @@ startBtn.addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     startBtn.disabled = false; startLabel.textContent = "Use hand gestures";
+    if (cardState === "waiting") hideCard();
     hintEl.textContent = landmarker ? "Camera blocked. Allow camera access in the address bar, then try again."
       : location.protocol.startsWith("http") ? "The hand model didn’t load. Your network may block cdn.jsdelivr.net or storage.googleapis.com."
       : "The hand model can’t load here. Open this page from a web server or your live site.";
@@ -1604,7 +1744,10 @@ function handLoop() {
     const res = landmarker.detectForVideo(video, performance.now());
     octx.clearRect(0, 0, ov.width, ov.height);
     const lm = res.landmarks?.[0];
-    if (lm) { if (!P.hand) hintEl.textContent = HAND_HINT; drawSkeleton(lm); onHand(lm); }
+    if (lm) {
+      if (!P.hand) { hintEl.textContent = HAND_HINT; if (cardState === "welcome" || cardState === "waiting" || cardState === "none") startCoach(); }
+      drawSkeleton(lm); onHand(lm);
+    }
     else if (P.hand) {
       if (P.down) releasePointer();
       P.hand = false; P.active = false; hotPlace = hotPillar = null; edgeSpeed = 0;
@@ -1640,6 +1783,8 @@ function onHand(lm) {
   if (!P.hand) { hx = tx; hy = ty; P.active = false; }
   hx += (tx - hx) * SMOOTH; hy += (ty - hy) * SMOOTH;
   P.hand = true; movePointer(hx, hy);
+  const step = Math.hypot(P.vx, P.vy);
+  coachEvent(dragging ? "drag" : "move", step);
   reticle.style.transform = `translate(${hx}px, ${hy}px)`; reticle.classList.add("on");
   if (panelDrag) {
     const dy = hy - panelDrag.lastY;
