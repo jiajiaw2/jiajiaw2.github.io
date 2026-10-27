@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jiajia Wang</title>
+<meta name="description" content="Jiajia (Jessica) Wang: geospatial AI for land, carbon, and climate decisions, from planet to pixel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #04070E;
+    --ink: #EDEFF2;
+    --muted: #8D97A8;
+    --line: rgba(237, 239, 242, .14);
+    --glass: rgba(10, 16, 28, .6);
+    --forest: #34D27E;
+    --grass: #F2B53A;
+    --wet: #8C7CFF;
+    --p: 0%;
+    color-scheme: dark;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+  body {
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Helvetica Neue", Arial, system-ui, sans-serif;
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--forest); outline-offset: 3px; }
+
+  #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  [data-mode="grid"] #stage { cursor: crosshair; }
+  [data-mode="grid"] #stage.dragging { cursor: grabbing; }
+  .vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(120% 90% at 55% 50%, transparent 55%, rgba(2, 4, 9, .8) 100%),
+      linear-gradient(90deg, rgba(4, 7, 14, .72) 0%, rgba(4, 7, 14, .3) 26%, transparent 42%);
+  }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: .06;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  #pixels {
+    position: fixed; inset: 0; width: 100%; height: 100%; z-index: 24; pointer-events: none; opacity: 0;
+    image-rendering: pixelated;
+  }
+  #flash {
+    position: fixed; inset: 0; z-index: 25; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at 50% 50%, #F4F7FF 0%, rgba(140, 200, 255, .55) 35%, rgba(4, 7, 14, 0) 75%);
+  }
+
+  /* ---------- identity ---------- */
+  .ident {
+    position: fixed;
+    top: calc(26px + env(safe-area-inset-top, 0px));
+    left: clamp(18px, 3.4vw, 48px);
+    z-index: 10;
+    max-width: min(600px, 60vw);
+    pointer-events: none;
+    transition: opacity .6s;
+  }
+  .name {
+    font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5.6vw, 5rem);
+    line-height: .92;
+    letter-spacing: -0.035em;
+    margin: 0;
+    background: linear-gradient(90deg, var(--forest) 0%, var(--grass) calc(var(--p) * .55), var(--wet) var(--p), var(--ink) var(--p));
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 1.4s 1.2s, transform 1.4s 1.2s cubic-bezier(.2, .8, .2, 1);
+  }
+  .ready .name { opacity: 1; transform: none; }
+  .role { margin: 14px 0 6px; font-size: clamp(.95rem, 1.5vw, 1.12rem); font-weight: 500; }
+  .tag { margin: 0 0 14px; color: var(--muted); font-size: clamp(.86rem, 1.25vw, .97rem); max-width: 34em; }
+  .fade { opacity: 0; transition: opacity 1.2s 2s; }
+  .ready .fade { opacity: 1; }
+  .links { display: flex; gap: 18px; font-size: .88rem; pointer-events: auto; }
+  .links a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 1px; }
+  .links a:hover, .linkbtn:hover { color: var(--ink); border-color: var(--ink); }
+  .linkbtn { background: none; border: 0; border-bottom: 1px solid var(--line); padding: 0 0 1px; color: var(--muted); cursor: pointer; font-size: inherit; }
+  .cv h3 { font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 500; font-size: .95rem; margin: 26px 0 10px; color: hsl(var(--h) 80% 70%); }
+  .cv ul { list-style: none; margin: 0; padding: 0; }
+  .cv li { margin: 0 0 10px; font-size: .9rem; color: #C9D0DB; line-height: 1.5; }
+  .cv li b { color: var(--ink); font-weight: 500; }
+  .cv li span { color: var(--muted); }
+  .cv a { color: hsl(var(--h) 80% 70%); }
+
+  .topright {
+    position: fixed; z-index: 12;
+    top: calc(24px + env(safe-area-inset-top, 0px));
+    right: clamp(18px, 3vw, 40px);
+    display: flex; gap: 10px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 18px 10px 14px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(12px);
+    cursor: pointer; font-weight: 500; font-size: .92rem; white-space: nowrap;
+  }
+  .pill:hover { border-color: rgba(237, 239, 242, .4); }
+  .pill[disabled] { opacity: .6; cursor: default; }
+  #startBtn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  #startBtn.live .dot { background: var(--forest); box-shadow: 0 0 0 5px rgba(52, 210, 126, .22), 0 0 14px var(--forest); }
+  #backBtn { display: none; }
+  [data-mode="grid"] #backBtn { display: inline-flex; }
+
+  /* ---------- facets ---------- */
+  .facets {
+    position: fixed; z-index: 10;
+    right: clamp(18px, 3vw, 40px); top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    opacity: 0; transition: opacity 1s 2.4s;
+  }
+  .ready .facets { opacity: 1; }
+  .facets button {
+    background: none; border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 5px 2px; font-size: .9rem; color: var(--muted); transition: color .2s;
+  }
+  .facets button i { width: 22px; height: 2px; background: hsl(var(--h) 80% 62%); transition: width .3s; box-shadow: 0 0 10px hsl(var(--h) 80% 62%); }
+  .facets button.all i { background: var(--ink); box-shadow: none; }
+  .facets button:hover, .facets button[aria-pressed="true"] { color: var(--ink); }
+  .facets button[aria-pressed="true"] i { width: 44px; }
+
+  /* ---------- zoom ---------- */
+  .zoom {
+    position: fixed; z-index: 11;
+    right: clamp(18px, 3vw, 40px); top: calc(50% + 140px);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    opacity: 0; transition: opacity 1s 2.4s;
+  }
+  .ready .zoom { opacity: 1; }
+  [data-mode="dive"] .zoom, [data-mode="rise"] .zoom { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
+  .zoom button {
+    min-width: 40px; height: 40px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px);
+    cursor: pointer; font-size: 1.15rem; line-height: 1;
+  }
+  .zoom button.fit { font-size: .84rem; font-weight: 500; }
+  .zoom button:hover { border-color: rgba(237, 239, 242, .45); }
+  .focus .zoom { opacity: .1 !important; }
+
+  /* ---------- labels ---------- */
+  .labels { position: fixed; inset: 0; z-index: 6; pointer-events: none; }
+  .labels.hidden { display: none; }
+  .lbl {
+    position: absolute; left: 0; top: 0;
+    pointer-events: auto; cursor: pointer;
+    background: none; border: 0; padding: 0; text-align: left;
+    transition: opacity .35s;
+    will-change: transform;
+  }
+  .lbl .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 10px 5px 8px; border-radius: 8px;
+    background: rgba(6, 10, 20, .55);
+    border: 1px solid hsl(var(--h) 70% 60% / .3);
+    backdrop-filter: blur(6px);
+    transition: background .2s, border-color .2s, transform .25s;
+    transform-origin: 0 50%;
+  }
+  .lbl .chip i { width: 6px; height: 6px; border-radius: 50%; background: hsl(var(--h) 85% 65%); box-shadow: 0 0 8px hsl(var(--h) 85% 65%); flex: none; }
+  .lbl .t { font-size: .76rem; font-weight: 600; white-space: nowrap; }
+  .lbl .k { display: none; font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  .lbl.hot .chip, .lbl:focus-visible .chip { background: hsl(var(--h) 60% 20% / .85); border-color: hsl(var(--h) 80% 65%); transform: scale(1.1); }
+  .lbl.hot .k { display: inline; }
+  .lbl.dive .chip { border-color: var(--forest); background: rgba(52, 210, 126, .16); }
+  .lbl.dim { opacity: .12; pointer-events: none; }
+  .lbl.off { opacity: 0 !important; pointer-events: none; }
+  /* grid beacons sit above their pillar */
+  .beacon .chip { flex-direction: column; gap: 0; padding: 6px 12px 7px; border-radius: 10px; transform-origin: 50% 100%; }
+  .beacon .s { font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 500; font-size: .72rem; color: hsl(var(--h) 85% 70%); white-space: nowrap; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: fixed; z-index: 10;
+    left: clamp(18px, 3.4vw, 48px);
+    bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+    max-width: min(580px, calc(100vw - 40px));
+    opacity: 0; transition: opacity 1s 2.4s;
+  }
+  .ready .hud { opacity: 1; }
+  .hud-grid { display: none; }
+  [data-mode="grid"] .hud-globe { display: none; }
+  [data-mode="grid"] .hud-grid { display: block; }
+  [data-mode="dive"] .hud, [data-mode="rise"] .hud { opacity: 0 !important; transition: opacity .3s; }
+  .readouts { display: flex; gap: clamp(18px, 3vw, 36px); flex-wrap: wrap; }
+  .readouts b {
+    display: block; font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 500;
+    font-size: clamp(1.1rem, 2.1vw, 1.6rem); line-height: 1.1;
+  }
+  .readouts b.hl { color: var(--forest); text-shadow: 0 0 18px rgba(52, 210, 126, .5); }
+  .readouts span { font-size: .78rem; color: var(--muted); }
+  .note { margin: 12px 0 0; font-size: .88rem; color: var(--muted); max-width: 40em; pointer-events: auto; }
+  .note b { color: var(--ink); font-weight: 600; }
+  .note button { margin-left: 6px; padding: 3px 12px; border-radius: 999px; cursor: pointer; border: 1px solid var(--forest); background: rgba(52, 210, 126, .14); font-size: .84rem; }
+  .note button.ghost { border-color: var(--line); background: none; color: var(--muted); }
+  #diveBtn {
+    margin-top: 16px;
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 12px 22px 12px 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(52, 210, 126, .6);
+    background: linear-gradient(90deg, rgba(52, 210, 126, .22), rgba(52, 210, 126, .05));
+    font-weight: 600; font-size: .95rem;
+    box-shadow: 0 0 30px -6px rgba(52, 210, 126, .55);
+  }
+  #diveBtn:hover { background: rgba(52, 210, 126, .3); }
+  #diveBtn .sq { width: 12px; height: 12px; background: var(--forest); box-shadow: 0 0 12px var(--forest); animation: blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+  .hint {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    top: calc(34px + env(safe-area-inset-top, 0px));
+    z-index: 9; pointer-events: none;
+    font-size: .84rem; color: var(--muted);
+    width: max-content; max-width: 30vw; text-align: center;
+    opacity: 0; transition: opacity 1s 2.6s;
+  }
+  .ready .hint { opacity: 1; }
+
+  /* ---------- altimeter during the dive ---------- */
+  .alt {
+    position: fixed; left: 50%; top: 50%; z-index: 24;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity .4s;
+  }
+  [data-mode="dive"] .alt, [data-mode="rise"] .alt { opacity: 1; }
+  .alt .lab { font-size: .82rem; color: rgba(237, 239, 242, .8); letter-spacing: .02em; }
+  .alt .val {
+    font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 700;
+    font-size: clamp(2.4rem, 8vw, 6rem); line-height: 1;
+    text-shadow: 0 0 40px rgba(120, 180, 255, .6);
+  }
+  .alt .sub { font-size: .9rem; color: rgba(237, 239, 242, .75); margin-top: 8px; }
+  [data-mode="dive"] .ident, [data-mode="dive"] .facets, [data-mode="dive"] .hint,
+  [data-mode="rise"] .ident, [data-mode="rise"] .facets, [data-mode="rise"] .hint { opacity: 0 !important; transition: opacity .3s; }
+
+  /* ---------- reticle ---------- */
+  #reticle { position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  #reticle.on { opacity: 1; }
+  #reticle .ring {
+    position: absolute; left: -18px; top: -18px; width: 36px; height: 36px;
+    border-radius: 50%; border: 2px solid var(--ink); box-shadow: 0 0 16px rgba(237, 239, 242, .45);
+    transition: transform .12s, border-color .12s, background .12s;
+  }
+  #reticle .ring::before, #reticle .ring::after { content: ""; position: absolute; background: var(--ink); opacity: .35; }
+  #reticle .ring::before { left: 50%; top: -9px; width: 2px; height: 50px; margin-left: -1px; }
+  #reticle .ring::after { top: 50%; left: -9px; height: 2px; width: 50px; margin-top: -1px; }
+  #reticle.pinched .ring { transform: scale(.55); border-color: var(--grass); background: rgba(242, 181, 58, .35); }
+  #reticle .arrows {
+    position: absolute; left: 22px; top: -22px; font-size: .8rem; line-height: 1.1; color: var(--ink);
+    opacity: 0; transition: opacity .15s, transform .15s;
+  }
+  #reticle.scroll .arrows { opacity: .9; }
+  #reticle.scroll .ring { border-radius: 12px; }
+  #reticle.scroll.pinched .arrows { transform: scale(1.25); color: var(--grass); }
+  #coord {
+    position: fixed; left: 0; top: 0; z-index: 39; pointer-events: none;
+    font-size: .74rem; color: var(--muted); padding: 3px 8px; border-radius: 6px; background: rgba(4, 7, 14, .65);
+    white-space: nowrap; opacity: 0; transition: opacity .2s;
+  }
+  #coord.on { opacity: 1; }
+  #coord b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- panel ---------- */
+  .panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 30;
+    width: min(470px, 100vw);
+    background: linear-gradient(180deg, rgba(9, 14, 26, .92), rgba(6, 10, 20, .95));
+    backdrop-filter: blur(20px);
+    border-left: 1px solid var(--line);
+    padding: calc(30px + env(safe-area-inset-top, 0px)) 32px calc(30px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    transform: translateX(105%);
+    transition: transform .6s cubic-bezier(.2, .9, .2, 1);
+    -webkit-user-select: text; user-select: text;
+  }
+  .panel.open { transform: none; }
+  .panel:focus { outline: none; }
+  .panel::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(180deg, hsl(var(--h) 85% 62%), transparent 70%);
+    box-shadow: 0 0 18px hsl(var(--h) 85% 62%);
+  }
+  .p-top { font-size: .84rem; color: hsl(var(--h) 80% 70%); margin: 0 0 10px; }
+  .panel h2 {
+    font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 700;
+    font-size: clamp(1.6rem, 3.4vw, 2.2rem); line-height: 1.05; letter-spacing: -0.025em; margin: 0 0 8px;
+  }
+  .p-meta { color: var(--muted); font-size: .88rem; margin: 0 0 22px; }
+  .p-blurb { margin: 0 0 22px; color: #C9D0DB; }
+  .proj { border-top: 1px solid var(--line); padding-top: 22px; margin-top: 6px; }
+  .proj h3 { font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 500; font-size: 1.15rem; margin: 0 0 4px; }
+  .p-stat b {
+    display: block; font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 700;
+    font-size: clamp(2.4rem, 6vw, 3.4rem); line-height: 1;
+    color: hsl(var(--ph, var(--h)) 85% 66%); text-shadow: 0 0 30px hsl(var(--ph, var(--h)) 85% 55% / .45);
+  }
+  .p-stat span { display: block; color: var(--muted); font-size: .9rem; margin: 8px 0 22px; max-width: 26em; }
+  .p-qlabel { font-size: .8rem; color: var(--muted); margin: 0 0 6px; }
+  .p-q { font-size: 1.15rem; font-style: italic; line-height: 1.45; margin: 0 0 20px; }
+  .p-body { margin: 0 0 20px; color: #C9D0DB; font-size: .97rem; }
+  .p-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .p-tags span { font-size: .8rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .p-links a { color: hsl(var(--ph, var(--h)) 85% 70%); font-weight: 500; margin-right: 14px; }
+  .p-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 26px; }
+  .p-actions button { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px; cursor: pointer; }
+  .p-actions button.go { border-color: var(--forest); background: rgba(52, 210, 126, .14); }
+  .p-actions button:hover { border-color: var(--ink); }
+  .p-hint { font-size: .8rem; color: var(--muted); }
+  .edge {
+    position: sticky; z-index: 2; height: 0; margin: 0 -32px; pointer-events: none;
+    display: none;
+  }
+  .hand-on .edge { display: block; }
+  .edge span {
+    position: absolute; left: 0; right: 0; height: 90px;
+    display: flex; justify-content: center; font-size: 1.1rem; color: var(--ink);
+    opacity: .25; transition: opacity .2s;
+  }
+  .edge.top { top: calc(-30px - env(safe-area-inset-top, 0px)); }
+  .edge.top span { top: 0; align-items: flex-start; padding-top: 10px;
+    background: linear-gradient(180deg, hsl(var(--h) 70% 50% / .28), transparent); }
+  .edge.bot { bottom: calc(-30px - env(safe-area-inset-bottom, 0px)); }
+  .edge.bot span { bottom: 0; align-items: flex-end; padding-bottom: 10px;
+    background: linear-gradient(0deg, hsl(var(--h) 70% 50% / .28), transparent); }
+  .edge.active span { opacity: 1; }
+  .focus .ident, .focus .hud, .focus .facets, .focus .hint { opacity: .1 !important; transition: opacity .5s; }
+  .focus .lbl:not(.hot) { opacity: .2; }
+
+  .cam {
+    position: fixed; z-index: 20;
+    right: clamp(18px, 3vw, 40px); bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+    width: clamp(120px, 13vw, 180px); aspect-ratio: 4 / 3;
+    border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; display: none;
+  }
+  .cam.show { display: block; }
+  .cam video, .cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .cam video { opacity: .45; filter: grayscale(1) contrast(1.2); }
+
+  @media (max-width: 760px) {
+    .vignette { background: radial-gradient(120% 90% at 50% 55%, transparent 50%, rgba(2, 4, 9, .85) 100%), linear-gradient(180deg, rgba(4, 7, 14, .8) 0%, transparent 30%, transparent 65%, rgba(4, 7, 14, .9) 100%); }
+    .ident { max-width: calc(100vw - 32px); top: calc(18px + env(safe-area-inset-top, 0px)); left: 16px; }
+    .name { font-size: 2.2rem; }
+    .role { font-size: .86rem; margin: 10px 0 8px; max-width: 60vw; }
+    .tag, .hint { display: none; }
+    .links { font-size: .82rem; gap: 14px; }
+    .topright { top: calc(18px + env(safe-area-inset-top, 0px)); right: 16px; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .pill { padding: 7px 12px 7px 10px; font-size: .8rem; }
+    .facets {
+      top: auto; transform: none; left: 0; right: 0;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      flex-direction: row; justify-content: flex-start; overflow-x: auto; padding: 0 16px; gap: 14px; scrollbar-width: none;
+    }
+    .facets button { flex: none; font-size: .8rem; flex-direction: row-reverse; }
+    .facets button i { width: 12px; }
+    .facets button[aria-pressed="true"] i { width: 20px; }
+    .hud { left: 16px; right: 16px; max-width: none; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+    .readouts { gap: 18px; }
+    .readouts div:nth-child(2) { display: none; }
+    .zoom { top: auto; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    .zoom button { min-width: 36px; height: 36px; }
+    .readouts b { font-size: 1.05rem; }
+    .readouts span { font-size: .72rem; }
+    .note { font-size: .8rem; margin-top: 8px; }
+    #diveBtn { margin-top: 12px; padding: 10px 18px 10px 14px; font-size: .88rem; }
+    .cam { top: calc(110px + env(safe-area-inset-top, 0px)); bottom: auto; right: 16px; width: 100px; }
+    .lbl .t { font-size: .68rem; }
+    .panel { top: auto; height: 80%; width: 100vw; border-left: 0; border-top: 1px solid var(--line);
+      border-radius: 20px 20px 0 0; transform: translateY(105%); padding-left: 22px; padding-right: 22px; }
+    .panel::before { width: auto; right: 0; height: 2px; bottom: auto; background: linear-gradient(90deg, hsl(var(--h) 85% 62%), transparent 80%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .name, .fade, .facets, .hud, .hint, .panel { transition: none; }
+    #diveBtn .sq { animation: none; }
+  }
+</style>
+</head>
+<body data-mode="globe">
+
+<canvas id="stage" aria-hidden="true"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+<div class="labels" id="globeLabels"></div>
+<div class="labels hidden" id="gridLabels"></div>
+<canvas id="pixels" aria-hidden="true"></canvas>
+<div id="flash"></div>
+
+<header class="ident">
+  <h1 class="name">Jiajia<br>Wang</h1>
+  <p class="role fade">Geospatial AI for land, carbon, and climate decisions.</p>
+  <p class="tag fade">On a mission to make climate science less scary, more solvable. I model where carbon goes, price what climate action costs, and ask the awkward question before the elegant answer.</p>
+  <nav class="links fade" aria-label="Contact">
+    <a href="mailto:jiajiaw2@illinois.edu">Email</a>
+    <a href="https://scholar.google.com/citations?user=DYPxNhgAAAAJ&hl=en" target="_blank" rel="noopener">Scholar</a>
+    <a href="https://www.jiajiawang.site/curriculum-vitae" target="_blank" rel="noopener">CV</a>
+    <button type="button" class="linkbtn" id="profileBtn">Full profile</button>
+  </nav>
+</header>
+
+<div class="topright">
+  <button class="pill" id="backBtn" type="button">Back to Earth</button>
+  <button class="pill" id="startBtn" type="button"><span class="dot"></span><span id="startLabel">Use hand gestures</span></button>
+</div>
+
+<nav class="facets" id="facets" aria-label="Filter by facet"></nav>
+
+<div class="zoom" id="zoomCtl" aria-label="Zoom">
+  <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+  <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+  <button type="button" data-zoom="fit" class="fit" id="fitBtn">Whole Earth</button>
+</div>
+
+<section class="hud" aria-live="polite">
+  <div class="hud-globe">
+    <div class="readouts">
+      <div><b>5</b><span>continents</span></div>
+      <div><b id="gPlaces">0</b><span>places in my work</span></div>
+      <div><b>140+</b><span>countries analyzed</span></div>
+      <div><b class="hl">160M</b><span>Illinois squares, next</span></div>
+    </div>
+    <button id="diveBtn" type="button"><span class="sq"></span>Dive into the 30 m grid</button>
+  </div>
+  <div class="hud-grid">
+    <div class="readouts">
+      <div><b id="rSq">0</b><span>squares retired</span></div>
+      <div><b id="rAc">0</b><span>acres</span></div>
+      <div><b id="rCo">0</b><span>t CO₂ saved per year</span></div>
+      <div><b id="rGap" class="hl">0%</b><span>carbon gap closed</span></div>
+    </div>
+    <p class="note" id="note">You’re in the Chicago region, one box per 30 m square. Sand is cropland: sweep across it to retire it.</p>
+  </div>
+</section>
+
+<p class="hint" id="hint">Drag to spin the planet. Click a place to see the work there.</p>
+
+<div class="alt" aria-hidden="true">
+  <div class="lab">Altitude</div>
+  <div class="val" id="altVal">14,000 km</div>
+  <div class="sub" id="altSub">Chicago, 41.88° N, 87.63° W</div>
+</div>
+
+<aside class="panel" id="panel" tabindex="-1" aria-labelledby="pTitle" aria-hidden="true"></aside>
+
+<div id="reticle"><div class="ring"></div><span class="arrows">↑<br>↓</span></div>
+<div id="coord"></div>
+<div class="cam" id="cam"><video id="video" playsinline muted></video><canvas id="overlay"></canvas></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+/* =========================================================
+   1. Content
+   ========================================================= */
+const FACETS = {
+  ai:      { label: "AI for Science",       hue: 258 },
+  finance: { label: "Climate Economics",    hue: 40 },
+  carbon:  { label: "Carbon & Policy",      hue: 150 },
+  design:  { label: "Design & Field",       hue: 198 },
+  teach:   { label: "Teaching",             hue: 6 },
+  practice:{ label: "Practice",             hue: 322 },
+};
+const SITE = "https://www.jiajiawang.site";
+const PROJECTS = {
+  "which-acres": { facet: "carbon", size: 1.5, title: "Which Acres?", stat: "76%",
+    statLabel: "of the Chicago region’s land carbon gap closed when every federal rule is followed",
+    question: "Policy can say how much land to restore. It can’t say which fields. So which ones?",
+    body: "I gave every 30 m square in the seven-county Chicago region (11.7 million of them) its own carbon, wildlife, and cost values, then let an optimizer retire cropland round by round inside the real Conservation Reserve Program rules. The surprise: federal eligibility rules, not the 25% county cap, stop the region short of net zero. Choosing carefully instead of at random cuts farmers’ early cost from $11.97 to $5.04 per tonne of CO₂. Next: a statewide run of about 160 million squares.",
+    role: "Lead researcher, LEAM Lab, with Prof. Brian Deal", when: "2025–2026",
+    tags: ["Optimization", "R pipeline", "CRP policy", "CMIP6 futures", "AAG 2027"],
+    links: [{ label: "Project page and video", url: `${SITE}/work/which-acres` }] },
+  "geo-ai": { facet: "ai", size: 1.3, title: "Geospatial AI", stat: "Any region",
+    statLabel: "the goal: a planning study that can travel to a new place",
+    question: "Years of research on one state: can they become a method that learns a new region on its own?",
+    body: "I’m building a vertical geospatial AI system that carries a planning study through every step: it finds the local data, reads the local research, learns the local rules, and drafts a land plan, starting with the Chicago region. Most inputs have global equivalents; land markets, conservation programs, and laws don’t, and that is exactly what the system has to learn. Every step stays open for agencies, farmers, and residents to inspect and challenge.",
+    role: "Lead researcher, LEAM Lab", when: "2026 onward", tags: ["AI for Science", "Agents", "Remote sensing", "Open methods"],
+    links: [{ label: "AI research page", url: `${SITE}/work/3-ai-powered-sustainable-urban-systems` }] },
+  "habitat": { facet: "ai", size: 1.05, title: "Habitat AI", stat: "10,029", statLabel: "species in the habitat models",
+    question: "Can biodiversity planning be as precise as infrastructure planning?",
+    body: "An AI-driven geodesign framework that pairs machine learning with species distribution models to rank habitat quality across land-use scenarios, run through a multi-stage parallel pipeline. It powers the wildlife layer of Which Acres? and is in press at npj Biodiversity.",
+    role: "First author, npj Biodiversity (in press)", when: "2025–2026",
+    tags: ["Machine learning", "Species distribution models", "Parallel computing"], links: [] },
+  "optimize": { facet: "ai", size: 0.95, title: "Fast Futures", stat: "1000s",
+    statLabel: "of land-use scenarios searched for the best trade-offs",
+    question: "Environment, equity, economy: what if a city didn’t have to pick just one?",
+    body: "Bayesian multi-objective optimization of Chicago land use that searches thousands of configurations for the best balance of environmental, equity, and economic goals, using fast machine-learning surrogates so planners can explore scenarios in minutes rather than days.",
+    role: "First author; Urban Affairs Association 2026", when: "2025–2026",
+    tags: ["Bayesian optimization", "LightGBM", "Equity"], links: [] },
+  "hedge": { facet: "finance", size: 1.15, title: "Conservation as a Hedge", stat: "Robust",
+    statLabel: "land decisions that hold up under crop-market uncertainty",
+    question: "When crop prices swing, is retiring farmland a sacrifice, or a form of insurance?",
+    body: "I treated conservation enrollment as a farm risk-management decision and tested which choices stay sound across market scenarios on Illinois working landscapes, tying together agricultural economics, conservation programs, and carbon markets. It also answers the first half of Which Acres?: how much cropland each Illinois county should retire. With Brian Deal, Siqi Zhu, S. Chen, and Zhihan Tao.",
+    role: "First author, Landscape Architecture and Sustainability; City+ 2026", when: "2026",
+    tags: ["Risk analysis", "Monte Carlo", "Carbon markets", "Ag economics"],
+    links: [{ label: "Read the paper", url: "https://doi.org/10.1016/j.las.2026.100058" }] },
+  "nwl": { facet: "carbon", size: 1.2, title: "Illinois Climate Plan", stat: "Statewide",
+    statLabel: "greenhouse gas accounting that informed Illinois climate bills",
+    question: "Where do a state’s emissions really come from, and which lands can pull them back?",
+    body: "On the LEAM Lab technical team for the Illinois Natural and Working Lands Plus framework, funded by the U.S. Climate Alliance and the Illinois Department of Natural Resources, I lead state-level greenhouse gas accounting and multi-sector abatement modeling for transportation, industry, energy, and urban systems, with findings that informed Illinois climate bills. I led the transportation and the industrial-process-and-waste accounts, from statewide networks down to street-level green infrastructure (two first-author papers in 2025), and build climate risk indicators for legislative briefings and a geospatial decision-support portal for state agencies. Co-author of the 2025 NWL+ technical report.",
+    role: "Associate Director, LEAM Lab", when: "2023 onward",
+    tags: ["GHG inventory", "Abatement modeling", "Python", "R", "Policy"],
+    links: [{ label: "Transportation paper", url: "https://doi.org/10.3390/land14040807" }] },
+  "urban-green": { facet: "carbon", size: 1.05, title: "Is Urban Green Green?", stat: "2029",
+    statLabel: "projected tipping point for Illinois urban vegetation carbon sinks",
+    question: "We plant city trees to absorb carbon. What if urban vegetation is about to stop doing that?",
+    body: "Using net primary production across the state, I track the temporal carbon flux of urban vegetation and flag a 2029 tipping point for urban carbon sinks in Illinois. This builds on a statewide assessment of urban carbon sequestration (Journal of Digital Landscape Architecture, 2024, co-author). A companion study with the National University of Singapore compares Cook County and Singapore to ask how urban form, function, and equity shape the urban carbon cycle.",
+    role: "First author; AAG 2026, City+ 2025 at Oxford", when: "2024–2026",
+    tags: ["Remote sensing", "NPP", "Carbon flux", "Equity"],
+    links: [{ label: "Carbon research page", url: `${SITE}/work/1-carbon-dynamics-sequestration-analysis` }] },
+  "ledger": { facet: "teach", size: 1.0, title: "Carbon Ledger", stat: "A × F",
+    statLabel: "activity times factor: one rule for both sides of any landscape",
+    question: "Can a design student account for a lawn’s carbon in one afternoon?",
+    body: "My guest lecture, “Every Landscape Is a Carbon Ledger,” gives students one equation and sends them to UIUC’s Main Quad to count both sides: what the trees take in, and what mowing, lighting, and leaf removal put out. Every factor comes from a named government source; every assumption is open to challenge. I have also been a teaching assistant for LA 437 Regional Design Studio (teaching the route from public data to a print map), UP/LA 480 Sustainable Design Principles (course materials on sustainability and LEED), LA 387 Findings of Energy in Landscape, and the Harvard GSD option studio Canary in the Mine, and an invited final reviewer at UIUC.",
+    role: "Guest lecturer and teaching assistant", when: "2022–2026", tags: ["Teaching", "Carbon accounting", "GIS"], links: [] },
+  "urban-flux": { facet: "design", size: 1.05, at: { u: 0.74, v: 0.8 }, title: "Urban Flux", stat: "5 nodes",
+    statLabel: "anchor points stitched along Lake Michigan, from South Chicago to Lake Station",
+    question: "Can a rust-belt region’s rail lines and vacant land become the infrastructure of a green economy?",
+    body: "In the Calumet region, where Illinois meets Indiana, we read two assets the region already has: rail and freight lines that can move resources, and a stock of vacant land and empty buildings that can host new industry. Five anchor points become nodes of development: South Chicago as the gateway, Gary as the hub, Lake Station as the stitch between rural and urban. Each gets green industries matched to its own data, from urban farms and recycling to education centers and carbon capture, phased over twenty years.",
+    role: "UIUC studio, team with Hannah Leung, Katie Bulin, Amber Sims, and Sam Newman", when: "2019; ILASLA Merit Award 2020",
+    tags: ["Regional design", "Post-industrial land", "Phasing", "Data storytelling"], links: [] },
+  "greens": { facet: "design", title: "Greens on Wheels", stat: "Movable",
+    statLabel: "food infrastructure that can roll out of the flood zone",
+    question: "What if a city’s food supply could move out of the way of the flood?",
+    body: "Large parts of San Juan, including many neighborhoods and food distribution centers, sit in flood zones. Greens on Wheels is an adaptive food project for both daily life and emergencies: movable structures that dodge flooding and stay flexible, paired with local food production that adds autonomy and availability. It answers three problems at once: too few healthy food sources in San Juan’s neighborhoods, the island’s dependence on imported food, and slow delivery of basic resources when the city floods. Later published as a book chapter in Shelter in Place, San Juan Workshop (2025).",
+    role: "Individual project, UIUC; Sasaki Day Award, May 2020", when: "Spring 2020",
+    tags: ["Food systems", "Flood resilience", "Movable structures", "Book chapter"], links: [] },
+  "kora": { facet: "design", title: "Kora Habitat", stat: "9 regions",
+    statLabel: "mapped for out-migration, flood, and wildfire exposure",
+    question: "How do you keep a musical tradition alive when its young people are leaving?",
+    body: "The kora connects the Mandinga community across time and space, but modern technology and rural-to-city migration are pulling the younger generation away from it. Kora Habitat rescues the oral tradition and musical practice by building material flows for kora production and reviving transmission between generations through education in Bironki. Behind it: GIS mapping of out-migration and flood and wildfire exposure across nine regions, combining FAO climate projections with household survey data from local partners (KAFO, INEP, and IBAP), and a productive landscape linking the reserved forest, calabash cultivation, and a heritage and education center.",
+    role: "Individual project, Harvard GSD; Studio High Pass", when: "Spring 2022",
+    tags: ["Cultural heritage", "Materiality", "GIS", "Productive landscape"], links: [] },
+  "the-tear": { facet: "design", title: "The Tear", stat: "Estuary",
+    statLabel: "of the Baoling River in Wenchang, restored and opened to people",
+    question: "Can cleaning up a polluted fishing estuary also create the reasons to stay?",
+    body: "The Tear sits at the estuary of the Baoling River in northeast Wenchang, where untreated plastic waste and fatty oxidation from the local fishing industry pollute the water. The design improves water quality while opening opportunities for local renovation and connection across cities: an ecological restoration and exhibition area that offers tourism and experience to urban visitors, new jobs for seasonal migrants, and green industries for the rural economy, and a place to step away from busy city life and return to nature.",
+    role: "Professional and individual project", when: "Summer and Fall 2019",
+    tags: ["Ecological restoration", "Water quality", "Coastal landscape"], links: [] },
+  "worldbank": { facet: "finance", title: "World Bank ESMAP", stat: "140+",
+    statLabel: "countries covered by the electricity-access investment analysis",
+    question: "Where does the next dollar of energy-access investment do the most good?",
+    body: "As a geo-analysis specialist with the World Bank’s Energy Sector Management Assistance Program, I ran the geospatial analysis behind electricity-access investment strategies and automated GAMS model preprocessing in Python and the cloud, cutting assessment time by about half. Also a delegate to the World Bank Group Youth Summit.",
+    role: "Geo-Analysis Specialist (Intern), Energy Global Knowledge Unit, ESMAP", when: "2025", tags: ["Energy access", "Investment strategy", "GAMS", "Python", "Cloud"], links: [] },
+  "barrio": { facet: "design", title: "Blue-Green Barrio", stat: "20,000", statLabel: "residents in a 23-year phased plan",
+    question: "Can the water that floods a neighborhood become the thing that holds it together?",
+    body: "In Barrio 21-24, beside the polluted Riachuelo River, we built a socio-environmental baseline from the RENABAP registry, municipal risk atlases, and flood and pollution mapping, then spent two weeks in the field with the Inter-American Development Bank, the city housing agency, and community groups. The result: a nine-part nature-based toolkit, 72% permeable surfaces, and more than 4 million liters of stormwater managed a year. Faculty-nominated work and Studio Distinction; presented to Buenos Aires officials.",
+    role: "Harvard GSD, team with Alanna Wittet", when: "2022", tags: ["Nature-based solutions", "Fieldwork", "IDB"], links: [] },
+  "ecocity": { facet: "carbon", title: "Eco-city Paradox", stat: "Embedded", statLabel: "in regional plans, yet unsupported by them",
+    question: "Why do eco-cities get so much ambition and so little support?",
+    body: "With S. Xiao of Harvard, I study eco-development under urban entrepreneurialism in Hainan, focusing on Jiangdong New Area, which sits between ecological ambition and free-trade-port imperatives. The argument: the problem is not green intent but regional coordination.",
+    role: "First author; Regional Studies Association 2026, Gothenburg", when: "2025–2026", tags: ["Governance", "Political economy", "China"], links: [] },
+};
+// projects shown as light pillars inside the Chicago grid
+const GRID_PROJECTS = ["which-acres", "geo-ai", "nwl", "hedge", "habitat", "urban-green", "optimize", "ledger", "urban-flux"];
+
+const LOCATIONS = [
+  { id: "chicago", name: "Chicago region", lat: 41.88, lon: -87.63, facet: "carbon", dive: true,
+    kind: "Dive into the 30 m grid" },
+  { id: "champaign", name: "Champaign, IL", lat: 40.11, lon: -88.24, facet: "ai", hub: true,
+    kind: "Home base: UIUC and the LEAM Lab",
+    blurb: "PhD candidate in landscape architecture (technology track) at the University of Illinois, advised by Prof. Brian Deal; candidacy passed in February 2026, dissertation “Dynamic Pathways for Climate-Adaptive Landscape Planning,” expected May 2027. Associate director of the LEAM Laboratory. Bachelor of Landscape Architecture here with highest honors (2020). Pauline Tilton Kennedy Prize, 2026.",
+    projects: ["nwl", "ledger"] },
+  { id: "dc", name: "Washington, DC", lat: 38.9, lon: -77.04, facet: "finance", kind: "World Bank, U.S. Climate Alliance",
+    blurb: "Geo-analysis at the World Bank’s ESMAP, a delegate seat at the World Bank Group Youth Summit (2025), and co-author of the Illinois NWL+ climate plan presentation to the U.S. Climate Alliance (2025).",
+    projects: ["worldbank"] },
+  { id: "cambridge", name: "Cambridge, MA", lat: 42.37, lon: -71.11, facet: "design", kind: "Harvard GSD, MLA II",
+    blurb: "Master in Landscape Architecture II, 2023. Research assistant to Prof. Anita Berrizbeitia (digitized the 1896 Olmsted, Olmsted & Eliot forest map of the Blue Hills and redrew the 1892 Boston Metropolitan Park System plan) and to Prof. Silvia Benedito (a UNESCO geopark application and research for communities in Guinea-Bissau). Paul M. Heffernan International Travel Award, 2022.",
+    projects: [] },
+  { id: "ba", name: "Buenos Aires", lat: -34.64, lon: -58.4, facet: "design", kind: "Blue-Green Barrio, with the IDB",
+    blurb: "Two weeks of fieldwork with the Inter-American Development Bank, the city housing agency, and community groups in Barrio 21-24.",
+    projects: ["barrio"] },
+  { id: "ouarzazate", name: "Ouarzazate, Morocco", lat: 30.92, lon: -6.9, facet: "design", kind: "Solar Oasis fieldwork",
+    blurb: "Two weeks of field research at the Noor solar complex with regional officials, residents, and the Moroccan Agency for Sustainable Energy, mapping watershed, groundwater, and grid systems. A three-phase plan pairs agrivoltaics with the revival of traditional khettara irrigation. Harvard GSD, 2023.",
+    projects: [] },
+  { id: "oio", name: "Oio, Guinea-Bissau", lat: 12.25, lon: -15.25, facet: "design", kind: "Kora Habitat studio",
+    blurb: "Spring 2022 studio at Harvard GSD on community cultural heritage and materiality in Oio, with Studio High Pass. Also a teaching assistant for the Harvard GSD option studio on Guinea-Bissau that fall.",
+    projects: ["kora"] },
+  { id: "sanjuan", name: "San Juan, Puerto Rico", lat: 18.47, lon: -66.1, facet: "design", kind: "Greens on Wheels",
+    blurb: "An undergraduate project on food and flooding that won the Sasaki Day Award in 2020 and became a book chapter five years later.",
+    projects: ["greens"] },
+  { id: "sheffield", name: "Sheffield, UK", lat: 53.38, lon: -1.47, facet: "design", kind: "University of Sheffield, study abroad",
+    blurb: "Merit-based Study Abroad Programme in the Department of Landscape Architecture at the University of Sheffield, 2019.",
+    projects: [] },
+  { id: "cremolino", name: "Cremolino, Italy", lat: 44.64, lon: 8.59, facet: "design", kind: "Rural landscape design studio",
+    blurb: "Summer study abroad in 2019: a rural landscape design studio in Italy and France with the University of Illinois.",
+    projects: [] },
+  { id: "algarve", name: "Algarve, Portugal", lat: 37.19, lon: -8.44, facet: "design", kind: "UNESCO Global Geopark research",
+    blurb: "Built the geological, hydrological, and cultural database for the Algarvensis UNESCO Global Geopark application (Loulé, Silves, and Albufeira) and surveyed historic water infrastructure with the Municipality of Silves.",
+    projects: [] },
+  { id: "oxford", name: "Oxford", lat: 51.75, lon: -1.26, facet: "carbon", kind: "City+ 2025 conference",
+    blurb: "Presented a comparison of local climate zones, net primary production, and equity in Cook County and Singapore.",
+    projects: ["urban-green"] },
+  { id: "gothenburg", name: "Gothenburg", lat: 57.71, lon: 11.97, facet: "carbon", kind: "Regional Studies Association 2026",
+    blurb: "Presented how eco-urbanism is rescaled between ecological ambition and free-trade-port imperatives in Hainan.",
+    projects: ["ecocity"] },
+  { id: "stockholm", name: "Stockholm", lat: 59.33, lon: 18.07, facet: "ai", kind: "KTH Royal Institute of Technology",
+    blurb: "Collaboration on AI-powered knowledge integration for carbon-neutral cities, and a co-developed machine learning platform for urban carbon assessment.",
+    projects: [] },
+  { id: "lesvos", name: "Lesvos, Greece", lat: 39.11, lon: 26.55, facet: "finance", kind: "City+ 2026 conference",
+    blurb: "Presented multi-objective optimization of agricultural land management, balancing farm returns with conservation.",
+    projects: ["hedge"] },
+  { id: "beijing", name: "Beijing", lat: 39.9, lon: 116.4, facet: "practice", kind: "Turenscape",
+    blurb: "Summer internship at Turenscape, 2018: an early start in ecological landscape design.",
+    projects: [] },
+  { id: "shenzhen", name: "Shenzhen", lat: 22.54, lon: 114.06, facet: "practice", kind: "Guosen Securities Research Institute",
+    blurb: "Equity research internship covering U.S. technology and AI infrastructure, 2026.", projects: [] },
+  { id: "shanghai", name: "Shanghai", lat: 31.23, lon: 121.47, facet: "practice", kind: "HASSELL, Strategic Planning Services",
+    blurb: "Two practice roles in 2021: design research and ecological framework chapters at HASSELL, coordinated across its Hong Kong, San Francisco, and Shanghai offices; and airport and logistics planning research with carbon and climate resilience analysis at SPS.",
+    projects: [] },
+  { id: "hainan", name: "Hainan", lat: 19.2, lon: 109.7, facet: "carbon", kind: "The Tear, eco-city study, FAO World Food Forum",
+    blurb: "Three threads on one island: The Tear, a 2019 estuary restoration design in Wenchang; the study area for my eco-city governance research in Haikou’s Jiangdong New Area; and an invited talk at the FAO World Food Forum in Sanya (October 2025) on how land-use management can advance carbon neutrality in farmland.",
+    projects: ["the-tear", "ecocity"] },
+  { id: "singapore", name: "Singapore", lat: 1.35, lon: 103.82, facet: "ai", kind: "National University of Singapore",
+    blurb: "Co-developed a machine learning framework and data platform for urban carbon assessment, and a Cook County versus Singapore comparison of the urban carbon cycle.",
+    projects: ["urban-green"] },
+  { id: "taipei", name: "Taipei", lat: 25.03, lon: 121.56, facet: "ai", kind: "National Taiwan University",
+    blurb: "Research collaboration between the LEAM Lab and National Taiwan University.", projects: [] },
+];
+
+/* =========================================================
+   2. Shared setup
+   ========================================================= */
+const THREE = window.THREE;
+const canvas = document.getElementById("stage");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const PR = Math.min(devicePixelRatio || 1, 2);
+renderer.setPixelRatio(PR);
+renderer.setSize(W, H);
+let mode = "globe";
+const GLOBE_HINT = "Drag to spin, scroll to zoom. Click a place to see the work there.";
+const GRID_HINT = "Sweep across the cropland to retire it. Drag to turn the map. Click a beacon to open it.";
+const setMode = m => {
+  mode = m; document.body.dataset.mode = m;
+  if (typeof renderFacets === "function" && (m === "grid" || m === "globe")) renderFacets();
+  const fb = document.getElementById("fitBtn");
+  if (fb) fb.textContent = m === "grid" ? "Whole map" : "Whole Earth";
+  const h = document.getElementById("hint");
+  if (h && !P.hand) h.textContent = m === "grid" ? GRID_HINT : GLOBE_HINT;
+};
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const glowTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d"), grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(.22, "rgba(255,255,255,.55)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const facetColor = (f, l = 0.62) => new THREE.Color().setHSL(FACETS[f].hue / 360, 0.85, l);
+
+/* =========================================================
+   3. The globe
+   ========================================================= */
+const gScene = new THREE.Scene();
+gScene.background = new THREE.Color(0x04070E);
+const gCam = new THREE.PerspectiveCamera(38, W / H, 0.0005, 100);
+const globe = new THREE.Group();
+globe.rotation.order = "XYZ";
+gScene.add(globe);
+
+const MASK_W = 512, MASK_H = 256;
+const MASK = Uint8Array.from(atob("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP7/BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA6O//PwAAYP////8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/r///z/073z+//+fEwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGL///v9D/v////////w/AAAAAAAAAAAAAACAAwAAAAAAgAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgP8BwP83/v//////////AAAAAAAAAAAAAAByAHAAAAAAAPgDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIj/7/c/B/D/////////ZwAAAAAAj/0/AAAAAAAAAAAAAADcPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwA+D/+NwD//////////w8AAAAAAP4PAAAAAAAAAAAAAAAAgD8LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgA/48/Hy/x/+//////////8DAAAAAAAd5wAAAAAAAAAAAAAAAADAHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAHAoAHuP8B8P//////////TQAAAAAA4MMHAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAHAACAAfx/APj//////////z8AAAAAAMAAAAAAAAAAAAABAAAAAAH/AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAB8ODigHPUBYADAr/////////8BAAAAAAAAAAAAAAAAAID8AQAAAADg//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAwPDjQxzjgT8AAADg////////DwAAAAAAAAAAAAAAAAD4AwAAAAD/////AwAAAPp7AAAAAAAAAAAAAAAAAAAAAACADwCA5/9/AAAAgP///////wsAAAAAAAAAAAAAAAAAPwAAAAD4/////wAAAACwBDwAAAAAAAAAAAAAAAAAAID/AQAAAAAAAAAAAID///////8GAAAAAAAAAAAAAAAAwAcAAAAA+P///48BAAAAgAEAAAAAAAAAAAAAAAAAAACA/w8ABz9/PO4DAAAA/v////+PBwAAAAAAAAAAAAAAAOABABAY+P/////4/4E/AAAPAAAAAAAAAAAAAAAAAAAAwH++ycM+E94/AAAAAP///////wEAAAAAAAAAAAAAAAB4AAB8BPn//////////wAAAQAAAAAAAAAAAAAAAAAAAOCf/78HPgLf/z8AAAD+/////38AAAAAAAAAAAAAAAAAfgAAfITn/////////38AgH8eAAAAAAD4////////////+AcA8HfwgQAA+P//HwAAAAAI/v///////////////wv//8A4QAAAAAAAAAAADwgAwP////9/AAAA8H8AAAAAAACe/x8AH/7//z8AALz/////zwEAAAAAAAAAqQYAAACAAkB//L//////////////////BwAAAAAAAP7//x8AQE4A/v//gB8A3Pz/AAAY//////8AAAAAAAAAyP8DAAAAADCAf/7//////////////////weAGAAAAAD/////h/f/f8D/fnA8gA/1/wEAgP////8PAAAAAAAAAP3//wEAYADAH37+////////////////////f/h//P8HAAAAAAAAAABAPP6fhzjwP4D//08AAAAA/v///////78AAADAP/5nEAADQgAAAAAAAAAAAAAAAAAAAAAAAMD/PwAAAAAAAAAA8HfAvwAM+CMA+v8PAAAA/P////////8fAAAAAH4cAAAAAAMAAAAAAAAAAAAAAAAAAAAAAACA/38AAAAAAAAAAAAAAAAAAPD/AcD/BwAAAP//////////DwAAIAB4DgAAAMABAAAAAAAAAAAAAAAAAAAAAAAAAOGfCwAAAAAAAAAAAAAAAGD8f4AB/y8AAID////+/////wcAAAADbAAAAAB4AAAAAAAAAAAAAAAAAAAAAAAAAALgAwAAAAAAAAAAAAAAAAAh/3+Ah/8PAAD4/38E8P////8DAAcA/gEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAB/j/////////////////7wP+/yEAwP8/AAAA/x8AAAAA/n/4/zH+////////////////////HwAAAAAAAAAIAAIA+P///////////////+cPDP8HAID/PwAAAP4HAAAAgP8//P/H////////////////////////////////PwAgAPj////////////////QEAS8BwCA/z8AAAB4AAAAAND/D////////////////////////////////////z8AAMD///////////////8/AAQA+AgAAP8fAAAAAAAAAAD8/8P///////////////////////////////////9/AADg////////////////DwBA3oADAAD8DwAAAAAAQAAA///B//////////////////////////////////7/AwAA8P///////////////wcAAPwDCAAA/A8AAAAAAAAAgP//gP//////////////////////////////f3D+fwAAAKD//x7///////////8DAAD+HwAAAMgHAAAAAAAAAID//8H//////////////////////////////z8Q/w8AAADM/39/+P//////////AQAA/B8AAAAABwAAAAAAAAAA/v8DBvz///////////////////////////8PwBcAAAAAAPwfAwD8/////////wEAAP4fGAAAAAAAAAAAAAAAgP//A/z///////////////////////////8OH/AAAAAAAACkPgAAsP////////8HAAD/f34AAAAAAAAAAAAAAAAf/wD+//////////////////////////8DAAB4AAAAAAAAAE8AAMD9////////DwAA/L9/AAAAAAAAAAAAQAMAAP+A+P//////////////////////////AAAAPgAAAAAAAIBxAACA/P///////x8AAPj//wAAAAAAAAAAACAfAEB+hPn/////////////////////////PwAAgH8AAAAAAABgAAAAAPf/////////AwD4//8AAAAAAAAAAAAADwBw/MD//////////////////////////x8AAMD/AAAAAAAANAAAAADU/////////w8A+P//AwAAAAAAAAAAgB4AMA/A//////////////////////////8HAADgPwAAAAAAABsAAAAAzP//////////A/7//wcAAAAAAAAAAGA+AHABwP//////////////////////////AQAA4D8AAAAAAAAAAAAAAID//////////4f///8/AAAAAAAAAADweAAggPP//////////////////////////wcAAOAPAAAAAAAEAAAAAACI/v////////8H////dwAAAAAAAAAAfPAA8O/////////////////////////////vAADABwAAAAAAAAAAAAAAEP//////////H/////8BAAAAAAAAAHj8AP///////////////////////////////w0AwAMAAAAAAAAAAAAAAAD8/////////w//////AQAAAAAAAAB8/MP///////////////////////////////8NAMABAAAAEAAAAAAAAAAA9P////////8f/////wAAAAAAAAAADPzh////////////////////////////////DQCAAQAAAAAAAAAAAAAAAPj//////////////48BAAAAAAAAAAD8+f///////////////////////////////wwAAAAAAAAAAAAAAAAAAAD8/////////////6fHAAAAAAAAAAAABfz///////////////////////////////8cACAAAAAAAAAAAAAAAAAAMP////////////9gwAAAAAAAAAAAACD/////////////////////////////////HAAAAAAAAAAAAAAAAAAAAMD+//////////8/H+AHAAAAAAAAAADA/////////////////////////////////wQAAAAAAAAAAAAAAAAAAACA/P//////////3w/wDwAAAAAAAAAA/P///////////////////////////////38EAAAAAAAAAAAAAAAAAAAAgP////////////8PABwAAAAAAAAAAOD///////////////////////////////8/BAAAAAAAAAAAAAAAAAAAAAD////////////7HwIQAAAAAAAAAADg////////j/9/8P//////////////////HwwAAAAAAAAAAAAAAAAAAAAA/////////////x8EAAAAAAAAAAAAwP//////B8P/H/j//////////////////w8AIAAAAAAAAAAAAAAAAAAAAP/////////////HAQAAAAAAAAAAAMD///n//8P7/wf2//////////////////8HAggAAAAAAAAAAAAAAAAAAAD/////////////OAAAAAAAAAAAAADA///h//8Bwf8D/v//////////////////AwQAAAAAAAAAAAAAAAAAAACA////////////HwwAAAAAAAAAAAAAwP/P4///AQD/B////////////////////wE+AAAAAAAAAAAAAAAAAAAAgP///////////w8AAAAAAAAAAAAA+P8fgQ///wAA/g/+/////////////////3cAfgAAAAAAAAAAAAAAAAAAAID///////////8HAAAAAAAAAAAAAPj/DzAP/H8AAPgP+P////////////////8DgA0AAAAAAAAAAAAAAAAAAACA////////////HwAAAAAAAAAAAAD4/w8QfvD/wAP4H+D/////////////////AYABAAAAAAAAAAAAAAAAAAAAgP///////////wAAAAAAAAAAAAAA8P8DAPDw/+8f/D/A/////////////////wAAAAAAAAAAAAAAAAAAAAAAAID//////////38AAAAAAAAAAAAAAPj/ATDg8hL+////+P//////////////z38AgAMAAAAAAAAAAAAAAAAAAAAA//////////9/AAAAAAAAAAAAAAD4/xAwwPDh////P/D//////////////2McAIADAAAAAAAAAAAAAAAAAAAAAP//////////NwAAAAAAAAAAAAAA+P8AEIDA4f///z/g/////////////38APACAAwAAAAAAAAAAAAAAAAAAAAD+/////////xMAAAAAAAAAAAAAAPh/AAAAAOP///8/4P////////////9/AHwAwAEAAAAAAAAAAAAAAAAAAAAA/P////////8HAAAAAAAAAAAAAAD4fwAAPICB////P+D//////////////wnwAOABAAAAAAAAAAAAAAAAAAAAAPj/////////DwAAAAAAAAAAAAAAgB8A9jAAAf/////w//////////////8f4AD0AAAAAAAAAAAAAAAAAAAAAAD4/////////w8AAAAAAAAAAAAAAIAA/n8AAIDE+P//////////////////D/Ag/AAAAAAAAAAAAAAAAAAAAAAA8P////////8LAAAAAAAAAAAAAACAwf//AAAAAPj//////////////////wPwoP8AAAAAAAAAAAAAAAAAAAAAAPD/////////BwAAAAAAAAAAAAAAgP//fwAAAMD4//////////////////8DMPA7AAAAAAAAAAAAAAAAAAAAAACA/////////wEAAAAAAAAAAAAAAMD//z8AAAAA+P//////////////////BwBcAwAAAAAAAAAAAAAAAAAAAAAAgP7//////38AAAAAAAAAAAAAAADw////AAAAAPz//////////////////w8ANgAAAAAAAAAAAAAAAAAAAAAAAAD+//////8/AAAAAAAAAAAAAAAA+P///w/AAQD8//////////////////8PAAQAAAAAAAAAAAAAAAAAAAAAAAAA/P//////HwAAAAAAAAAAAAAAAPj///8/8AcA/v//////////////////HwAGAAAAAAAAAAAAAAAAAAAAAAAAAJz//////w8AAAAAAAAAAAAAAAD8////f+B/GP7//////////////////x8AAgAAAAAAAAAAAAAAAAAAAAAAAACY//////8PAAAAAAAAAAAAAAAA/P/////z//////////////////////8PAAAAAAAAAAAAAAAAAAAAAAAAAAAAGP////uBDgAAAAAAAAAAAAAAAPz///////////+f////////////////PwAAAAAAAAAAAAAAAAAAAAAAAAAAACD///8BABwAAAAAAAAAAAAAAAD+////////v/3/D////////////////x8AAAAAAAAAAAAAAAAAAAAAAAAAAABA/v9/AAAcAAAAAAAAAAAAAAAA/////////////x/+//////////////8fAAAAAAAAAAAAAAAAAAAAAAAAAAAA0Pj/PwAAPAAAAAAAAAAAAABA4P///////////P8f/P//////////////DwAAAAAAAAAAAAAAAAAAAAAAAAAAAMDx/z8AADgAAAAAAAAAAAAAAOD///////////j/f/D+/////////////wcAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4/8fAAAwAAAAAAAAAAAAAADw///////////x/38A/v////////////8DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOL/PwAAMAAAAAAAAAAAAAAA+P//////////8f9/gfz/////////////AwAAAAAAAAAAAAAAAAAAAAAAAAAAAADG/x8AAAAAAAAAAAAAAAAAAPj//////////+P//8EAgP///////////xEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAhP8fAAAAAgAAAAAAAAAAAAD8///////////D///hAQD///////////8YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAj/HwAAAAAAAAAAAAAAAAAA/v//////////h////w8A/v////////8/GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/h8AAD4AAAAAAAAAAAAAAP7//////////4f///8PAPT/////////HQgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwfAADhAQAAAAAAAAAAAAD///////////8P////HwD8////+////wEAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAD8PwAMAAcAAAAAAAAAAAAA////////////H////w8A+P//D/j//zEAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAA/D+ADwAOAAAAAAAAAAAAAP///////////x////8HAAD//w/4//8QAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAPx/gA8APAEAAAAAAAAAAAD+//////////8f/v//AwCA//8H4P9/IAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAD4f4AHEAAeAAAAAAAAAAAA/v//////////H/z//wMAAP//AeD/PxgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4P/RBwBAfgAAAAAAAAAAAP7//////////z/4//8BAAD//wDA/z8YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAID//wcADgQAAAAAAAAAAAD+//////////9/+P//AAAA/38AwP9/AAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8DAAAAAAAAAAAAAAAA/v//////////f/D/fwAAAP8fAMD//wAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD/AwAAAAAAAAAAAAAAAP7////////////g/wcAAAD/HwDA/f8BADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADA+OsAAAAAAAAAAAAAAAD/////////////4P8DAAAA/gMAAPj/AwAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD/AwAAAAAAAAAAAEAA/////////////+H/AAAAAP4DAAD4/wcAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg/wMAAAAAAAAAAAAAAP/////////////nPwAAAAD8AwAA+P8HABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8BAAAAAAAAAAAAAAD/////////////zw8AAAAA/AMAAPD/BwCQAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4AQAAAAAAAAAAAAAA/////////////98AAAAAAPwDAAAw/w8AEAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AEABAAAAAAAAAAAAP////////////8/AAAAAAD4AwAAMPwHALACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOABAAMAAAAAAAAAAAD4////////////H4ABAAAA+AEAADD4BwAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAeB/AAAAAAAAAAAA+P///////////z/4AQAAAPADAAAQ8AMA4AIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAPg+3cBAAAAAAAAAPD//////////////wAAAADwAQAAEOAAAAICAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH8Pv/AQAAAAAAAADg//////////////8AAAAA4AQAABBgAADBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbvv//wEAAAAAAAAA4P//////////////AAAAAGAEAAAwIACAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADD+//8PAAAAAAAAAMD/////////////fwAAAAAADAAAcAAAAMAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg/v//HwAAAAAAAADA/////////////38AAAAAAAwAAGAAAAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPz//z8AAAAAAAAAAP////////////8/AAAAAAAMAADAAQBAIAsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8//9/AgAAAAAAAAD8/4H/////////PwAAAAAABAAAgAMAYBAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/P///x8AAAAAAAAA+HcA/////////x8AAAAAAAAAgIEHAPADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPz///8/AAAAAAAAADAAAO////////8PAAAAAAAAAACPBwD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8////fwAAAAAAAAAAAADA////////BwAAAAAAAAAAjgcAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/P///38AAAAAAAAAAAAAwP///////wMAAAAAAAAAADwHAH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////AAAAAAAAAAAAAMD///////8BAAAAAAAAAAB4DoD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////wEAAAAAAAAAAADA////////AAAAAAAAAAAA8A3I/wAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA//////8BAAAAAAAAAAAAwP//////fwAAAAAAAAAAAOQX+P8xYgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwP//////AAAAAAAAAAAAAOL//////x8AAAAAAAAAAADgA/h/hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAMD/////fwcAAAAAAAAAAADg//////8fAAAAAAAAAAAAwA/4fwQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg//////8/AAAAAAAAAAAA4P//////DwAAAAAAAAAAAJAP8H9kAHgCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4P///////AEAAAAAAAAAAOD//////wcAAAAAAAAAAACAX/AfHAJwHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKD///////8FAAAAAAAAAADA//////8DAAAAAAAAAAAAAD/gPx4AYPwAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAADA/////////wAAAAAAAAAAgP//////AQAAAAAAAAAAAAB/gB822OP+BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4P////////8BAAAAAAAAAAD//////wEAAAAAAAAAAAAAfAAINACg/z8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD/////////AwAAAAAAAAAA/v////8AAAAAAAAAAAAAAHgAACQAAPx/AAMAAAAAAAAAAAAAAAAAAAAAAAAAAADg/////////z8AAAAAAAAAAP7/////AQAAAAAAAAAAAABwAAAkAADwf4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4P////////8/AAAAAAAAAAD8////fwAAAAAAAAAAAAAAAAEAAACA4P9zEAAAAAAAAAAAAAAAAAAAAAAAAAAAAMD/////////PwAAAAAAAAAA/P////8AAAAAAAAAAAAAAMBjAAAAAOD/AyAAAAAAAAAAAAAAAAAAAAAAAAAAAACA/////////z8AAAAAAAAAAPz/////AAAAAAAAAAAAAACA/wAAAADA/wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgP////////8/AAAAAAAAAAD4/////wAAAAAAAAAAAAAAAOAHAAAA0A8HgAQAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////PwAAAAAAAAAA+P////8AAAAAAAAAAAAAAAAA4D0MAAAPBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////x8AAAAAAAAAAPj/////AAAAAAAAAAAAAAAAAAAGAwAAAE4ACAAAAAAAAAAAAAAAAAAAAAAAAAAAAP7///////8fAAAAAAAAAAD4/////wEAAAAAAAAAAAAAAAAAiAEAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+////////BwAAAAAAAAAA8P////8DAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/P///////wcAAAAAAAAAAPD/////IwAAAAAAAAAAAAAAAAAAAAYABAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj///////8DAAAAAAAAAAD4/////wMAAAAAAAAAAAAAAAAAAAD8BQwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4////////AQAAAAAAAAAA/P////8DQAAAAAAAAAAAAAAAAAAA/gMOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8P///////wEAAAAAAAAAAPz/////A3AAAAAAAAAAAAAAAAAAAP4BDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD///////8BAAAAAAAAAAD8/////wNwAAAAAAAAAAAAAAAAADj/AT4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg////////AQAAAAAAAAAA/v////8D+AAAAAAAAAAAAAAAAAD8/wF+AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAwP///////wEAAAAAAAAAAP7/////Af4AAAAAAAAAAAAAAAAA/v8DfgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////8AAAAAAAAAAAD+/////4B/AID//////////////wAAsIH//////78CAAAAAAAAAAAAAAAAAAAAAAAA/P//////AAAAAAAAAAAA/v///z+APwAAAAAAAAAAAAAAAED//z//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj//////wAAAAAAAAAAAP7///8fgD8AAAAAAAAAAAAAAADA/////wAAAAAAMAABAAAAAAAAAAAAAAAAAAAAAADw/////38AAAAAAAAAAAD+////D4A/AAAAAAAAAAAAAAAA4P////8AAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAA8P//////AAAAAAAAAAAA/P///wOAPwAAAAAAAAAAAAAAAOD/////AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD/////fwAAAAAAAAAAAPj///8BgB8AAAAAAAAAAAAAAAD+/////wcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw/////z8AAAAAAAAAAAD4////A4AfAAAAAAAAAAAAAADA//////8PAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAA8P////8/AAAAAAAAAAAA8P///wPAHwAAAAAAAAAAAAAA8P//////DwAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD/////HwAAAAAAAAAAAPD///8DwA8AAAAAAAAAAAAAAPj//////x8AABAAAAAAAAAAAAAAAAAAAAAAAAAAAADw/////w8AAAAAAAAAAADg////B8APAAAAAAAAAAAAAAD8//////8/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8P////8AAAAAAAAAAAAA4P///wPADwAAAAAAAAAAAAAA/P//////fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD///8fAAAAAAAAAAAAAOD///8DwAcAAAAAAAAAAAAAAP7///////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw////DwAAAAAAAAAAAADg////AYAHAAAAAAAAAAAAAAD8////////AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+P///wcAAAAAAAAAAAAA4P//fwAAAAAAAAAAAAAAAAAA/v///////wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD///8HAAAAAAAAAAAAAOD//38AAAAAAAAAAAAAAAAAAPz///////8DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4////BwAAAAAAAAAAAADA//9/AAAAAAAAAAAAAAAAAAD8////////AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+P///wcAAAAAAAAAAAAAwP//PwAAAAAAAAAAAAAAAAAA/P///////wMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPj///8HAAAAAAAAAAAAAID//z8AAAAAAAAAAAAAAAAAAPj///////8DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8////AQAAAAAAAAAAAAAA//8fAAAAAAAAAAAAAAAAAAD4////////AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+P///wEAAAAAAAAAAAAAAP//DwAAAAAAAAAAAAAAAAAA+P///////wMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPz//38AAAAAAAAAAAAAAAD+/wcAAAAAAAAAAAAAAAAAAPD///////8DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8//+/AAAAAAAAAAAAAAAA/v8HAAAAAAAAAAAAAAAAAADw////////AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/P//PwAAAAAAAAAAAAAAAPz/AQAAAAAAAAAAAAAAAAAA4P8/4P///wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPz//x8AAAAAAAAAAAAAAAD8/wAAAAAAAAAAAAAAAAAAAPD/A4D///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8//8fAAAAAAAAAAAAAAAA/H8AAAAAAAAAAAAAAAAAAADw/wAA9/9/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/P//DwAAAAAAAAAAAAAAAPgAAAAAAAAAAAAAAAAAAAAA8AMAAPP/fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP7/PwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAAAADo/z8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+/38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4P8/AAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAA//9/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAID/PwAAAIACAAAAAAAAAAAAAAAAAAAAAAAAAP//fwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA/x8AAAAAAQAAAAAAAAAAAAAAAAAAAAAAAID//38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgP8fAAAAACIAAAAAAAAAAAAAAAAAAAAAAACA//8/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADcAQAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAP9/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHwAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AAAAAAAAAAAAAAAAAAAAAAACA/38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAgP8nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAYAAACgAgAAAAAAAAAAAAAAAAAAAAAAAAD/DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAHAAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAA/z8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAwAAAHgAAAAAAAAAAAAAAAAAAAAAAAAAQP8PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAEAAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAD/BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHwAAAAAAAAAAAAAAAAAAAAAAAABA/gcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAcAAAAAAAAAAAAAAAAAAAAAAAAAAP8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAHAAAAAAAAAAAAAAAAAAAAAAAAAOD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgAwAAAAAAAAAAAAAAAAAAAAAAAADw/wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwP8DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGD/AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADw/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4D8ANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADcAwAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYAAAAAAAAAAAAAAAAAAAAAAAAAAD/AQAAAAAAAJD/4AcADP4PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADADwAAAAAAAAAAAAAAAAAAAAAAAABg/wcAAAAA/f/////n8v///z8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAA/////wUA+P//////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmAAAAAAAAAAAAAAAAAAAAAAAA+P////8HAP///////////////38IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOvgAAAAAAAAAAAAAAAAAAAACAA/7/////B8D//////////////////wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAwvH8AAAAAAAAAAAAAAAAAQAAAgP///////wH///////////////////8PAAAAAAAAAAAAAAAAAAAAAAAAAAAAYHj/AgAAAAAAAAAAAACAf/7HBv7///////+D////////////////////3x8AAAAAAAAAAAAAAAAAAAAAAAAAAIB+/wEAAAAAAAAAgOZf////////////////wf//////////////////////AQAAAAAAAAAAAAAAAAAAwE8AAABAeP4DAAAAAAAAAAD///////////////////D//////////////////////wMAAAAAAAAAAAAAAAAAACAAQAIAAAD/AwAAAAAAAADg/////////////////3/+//////////////////////8DAAAAAAAAAAAAABgAAAAA/P9/8CD//wAAAAAAAAAA/v////////////////////////////////////////87AgAAAAAAAAAAAADADmIAAP////////8BAAAAAAAABPz/////////////////////////////////////////BwAAAAAAAAAAAMB///+/BwD+//////+/AAAAAAAAAMD/////////////////////////////////////////fwAAAAAAAAAAALH/////////////////HwAAAAAAAAD8//////////////////////////////////////////8AAAAAAAAAAHD+////////////////PwAAAAAAAAD///////////////////////////////////////////9/AAAAAAAAAAAU/v//////////////BwAAAAAAAAD4////////////////////////////////////////////fwAAAAAAAID/8/////////////////8AAAAAAACA//////////////////////////////////////////////8hAAAAAAAA8P////////////////8DAAEAAP4D4P//////////////////////////////////////////////DwAAAADAB+D///////////////8PADwAAAD/A6D/////////////////////////////////////////////HwAAAAAAADgA4P///////////////wcABgaA/wcAGMD//////////////////////////////////////////wcAAAAAAAAAAPz///////////////8fAPwH+A8AAPz///////////////////////////////////////////8PAAAAAAAAAP7///////////////////8AAAAAwP//////////////////////////////////////////////HwAAAAAAAEDw////////////////////AwAACPj///////////////////////////////////////////////8AAAAAAAAAwP///////////////////38A////////////////////////////////////////////////////DwAAAOA/AP//////////////////////8P///////////////////////////////////////////////////38AAAAAgP///////////////////////////////////////////////////////////////////////////////wcAAP4fAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="), c => c.charCodeAt(0));
+function isLand(lat, lon) {
+  const i = Math.floor((lon + 180) / 360 * MASK_W) % MASK_W, j = clamp(Math.floor((90 - lat) / 180 * MASK_H), 0, MASK_H - 1);
+  const k = j * MASK_W + i;
+  return (MASK[k >> 3] >> (k & 7)) & 1;
+}
+function ll2v(lat, lon, r = 1) {
+  const p = lat * Math.PI / 180, l = lon * Math.PI / 180;
+  return new THREE.Vector3(r * Math.cos(p) * Math.sin(l), r * Math.sin(p), r * Math.cos(p) * Math.cos(l));
+}
+
+// ocean sphere with a rim glow
+const ocean = new THREE.Mesh(new THREE.SphereGeometry(0.992, 96, 64), new THREE.ShaderMaterial({
+  uniforms: { uFade: { value: 1 } },
+  vertexShader: `varying vec3 vN; varying vec3 vV;
+    void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+  fragmentShader: `varying vec3 vN; varying vec3 vV; uniform float uFade;
+    void main(){ float f = pow(1.0 - max(dot(vN, vV), 0.0), 3.0);
+      vec3 base = vec3(0.012, 0.03, 0.065); vec3 rim = vec3(0.18, 0.45, 0.95);
+      gl_FragColor = vec4(base + rim * f * 0.9, uFade); }`,
+  transparent: true,
+}));
+globe.add(ocean);
+
+// atmosphere halo
+const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.0, 64, 48), new THREE.ShaderMaterial({
+  uniforms: { uFade: { value: 1 } },
+  vertexShader: `varying vec3 vN; varying vec3 vV;
+    void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+  fragmentShader: `varying vec3 vN; varying vec3 vV; uniform float uFade;
+    void main(){ float d = dot(vN, vV); float i = pow(clamp(0.62 + d, 0.0, 1.0), 4.0);
+      gl_FragColor = vec4(vec3(0.25, 0.6, 1.0) * i * 1.4, i * uFade); }`,
+  side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+atmo.scale.setScalar(1.17);
+gScene.add(atmo);
+
+// graticule
+const grat = new THREE.Group();
+const gratMat = new THREE.LineBasicMaterial({ color: 0x2a4a80, transparent: true, opacity: 0.18, depthWrite: false });
+for (let lat = -60; lat <= 60; lat += 30) {
+  const pts = []; for (let lon = -180; lon <= 180; lon += 4) pts.push(ll2v(lat, lon, 1.002));
+  grat.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gratMat));
+}
+for (let lon = -180; lon < 180; lon += 30) {
+  const pts = []; for (let lat = -90; lat <= 90; lat += 4) pts.push(ll2v(lat, lon, 1.002));
+  grat.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gratMat));
+}
+globe.add(grat);
+
+// land as a cloud of dots on a Fibonacci sphere
+const dotPos = [], dotCol = [], dotRand = [];
+{
+  const NPTS = W < 760 ? 36000 : 60000, golden = Math.PI * (3 - Math.sqrt(5));
+  const cBase = new THREE.Color(0x9DB6E6), cAlt = new THREE.Color(0x5FE0C2);
+  const cCrop = new THREE.Color(0xD9B870), cGreen = new THREE.Color(0x34D27E);
+  for (let k = 0; k < NPTS; k++) {
+    const y = 1 - (k / (NPTS - 1)) * 2, r = Math.sqrt(1 - y * y), th = golden * k;
+    const x = Math.cos(th) * r, z = Math.sin(th) * r;
+    const lat = Math.asin(y) * 180 / Math.PI, lon = Math.atan2(x, z) * 180 / Math.PI;
+    if (!isLand(lat, lon)) continue;
+    dotPos.push(x * 1.003, y * 1.003, z * 1.003);
+    let c = cBase.clone();
+    if (Math.random() < 0.08) c = cAlt.clone();
+    // Illinois glows as farmland, hinting at the grid below
+    if (lat > 37 && lat < 42.6 && lon > -91.5 && lon < -87.4) c = Math.random() < 0.8 ? cCrop.clone() : cGreen.clone();
+    const shade = 0.75 + Math.random() * 0.35;
+    dotCol.push(c.r * shade, c.g * shade, c.b * shade);
+    dotRand.push(Math.random());
+  }
+}
+const dotGeo = new THREE.BufferGeometry();
+dotGeo.setAttribute("position", new THREE.Float32BufferAttribute(dotPos, 3));
+dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
+dotGeo.setAttribute("aRand", new THREE.Float32BufferAttribute(dotRand, 1));
+const dotMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uSize: { value: 0.012 }, uSquare: { value: 0 }, uReveal: { value: 0 }, uPR: { value: PR }, uViewH: { value: H } },
+  vertexShader: `
+    attribute float aRand; attribute vec3 color;
+    uniform float uTime, uSize, uReveal, uPR, uViewH;
+    varying vec3 vColor; varying float vA;
+    void main(){
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vec3 n = normalize(wp.xyz);
+      float facing = dot(n, normalize(cameraPosition - wp.xyz));
+      float rev = smoothstep(aRand - 0.15, aRand, uReveal);
+      vA = smoothstep(-0.05, 0.3, facing) * rev * (0.72 + 0.28 * sin(uTime * 1.6 + aRand * 40.0));
+      vColor = color;
+      vec4 mv = viewMatrix * wp;
+      gl_PointSize = min(2048.0, uSize * uViewH * uPR / -mv.z);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: `
+    uniform float uSquare; varying vec3 vColor; varying float vA;
+    void main(){
+      vec2 c = gl_PointCoord - 0.5;
+      float roundA = 1.0 - smoothstep(0.32, 0.5, length(c));
+      float sqA = step(max(abs(c.x), abs(c.y)), 0.44);
+      float a = mix(roundA, sqA, uSquare) * vA;
+      if (a < 0.02) discard;
+      gl_FragColor = vec4(vColor * (1.0 + 0.4 * uSquare), a);
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+globe.add(new THREE.Points(dotGeo, dotMat));
+
+// stars
+{
+  const sp = [];
+  for (let k = 0; k < 2200; k++) {
+    const v = new THREE.Vector3().randomDirection ? new THREE.Vector3().randomDirection() : new THREE.Vector3(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize();
+    v.multiplyScalar(30 + Math.random() * 30); sp.push(v.x, v.y, v.z);
+  }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute("position", new THREE.Float32BufferAttribute(sp, 3));
+  gScene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0x8fa6d6, size: 0.06, transparent: true, opacity: 0.7, depthWrite: false })));
+}
+
+// locations: spikes, glows, arcs from home, and travelling pulses
+const hub = LOCATIONS.find(l => l.hub);
+const places = [];
+const arcGroup = new THREE.Group(); globe.add(arcGroup);
+LOCATIONS.forEach((L, k) => {
+  const col = facetColor(L.facet);
+  const base = ll2v(L.lat, L.lon, 1.0);
+  const tall = L.dive ? 0.16 : 0.07;
+  const spikeGeo = new THREE.BufferGeometry().setFromPoints([base.clone().multiplyScalar(1.003), base.clone().multiplyScalar(1 + tall)]);
+  const spike = new THREE.Line(spikeGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.position.copy(base.clone().multiplyScalar(1.005)); glow.scale.setScalar(L.dive ? 0.14 : 0.07);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.02, 0.026, 40),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  ring.position.copy(base.clone().multiplyScalar(1.004)); ring.lookAt(base.clone().multiplyScalar(2));
+  globe.add(spike, glow, ring);
+
+  let arc = null, pulse = null, arcLen = 0;
+  if (!L.hub) {
+    const a = ll2v(hub.lat, hub.lon), b = base.clone(), ang = a.angleTo(b), pts = [];
+    const SEG = 80;
+    for (let s = 0; s <= SEG; s++) {
+      const t = s / SEG;
+      const v = new THREE.Vector3().copy(a).multiplyScalar(Math.sin((1 - t) * ang) / Math.sin(ang))
+        .add(b.clone().multiplyScalar(Math.sin(t * ang) / Math.sin(ang))).normalize();
+      v.multiplyScalar(1.004 + Math.sin(Math.PI * t) * (0.04 + ang * 0.13));
+      pts.push(v);
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    geo.setDrawRange(0, 0);
+    arc = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+    arcGroup.add(arc);
+    pulse = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pulse.scale.setScalar(0.045);
+    arcGroup.add(pulse);
+    arcLen = pts.length; arc.userData.pts = pts;
+  }
+
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "lbl" + (L.dive ? " dive" : "");
+  el.style.setProperty("--h", FACETS[L.facet].hue);
+  el.dataset.place = L.id;
+  el.innerHTML = `<span class="chip"><i></i><span class="t"></span><span class="k"></span></span>`;
+  el.querySelector(".t").textContent = L.name;
+  el.querySelector(".k").textContent = L.kind;
+  el.setAttribute("aria-label", `${L.name}: ${L.kind}`);
+  el.addEventListener("click", () => L.dive ? startDive() : openPlace(L.id));
+  el.addEventListener("pointerenter", () => { hotPlace = L.id; });
+  el.addEventListener("pointerleave", () => { if (hotPlace === L.id) hotPlace = null; });
+  el.addEventListener("focus", () => { hotPlace = L.id; });
+  el.addEventListener("blur", () => { if (hotPlace === L.id) hotPlace = null; });
+  document.getElementById("globeLabels").appendChild(el);
+  places.push({ L, base, tip: base.clone().multiplyScalar(1 + tall), spike, glow, ring, arc, pulse, arcLen, el,
+    delay: 1.6 + k * 0.09, phase: Math.random() });
+});
+let hotPlace = null;
+document.getElementById("gPlaces").textContent = LOCATIONS.length;
+
+// globe camera state
+const G = { rx: 0.25, ry: 0.4, trx: 0.42, try: 1.35, dist: 9, tdist: 4.3, square: 0, t0: performance.now() };
+const CHI = LOCATIONS.find(l => l.dive);
+function homeDist() { return W / H < 1 ? 4.3 / Math.max(0.5, (W / H) * 1.35) : 4.6; }
+// during the dive the dots shrink into a star-field, then swell into squares
+function dotSizeMul() {
+  if (mode === "dive") return diveT < 0.8 ? 1 - 0.85 * clamp((diveT - 0.15) / 0.5, 0, 1) : 0.15 + 1.4 * clamp((diveT - 0.8) / 0.2, 0, 1);
+  if (mode === "rise") return diveT < 0.15 ? 1.55 - 1.4 * (diveT / 0.15) : 0.15 + 0.85 * clamp((diveT - 0.35) / 0.6, 0, 1);
+  return 1;
+}
+function markerFade() {
+  if (mode === "dive") return 1 - clamp(diveT / 0.45, 0, 1);
+  if (mode === "rise") return clamp((diveT - 0.55) / 0.45, 0, 1);
+  return 1;
+}
+let gViewShift = null;
+function applyGlobeView(dt) {
+  const wide = W >= 760;
+  const target = (mode === "dive" || mode === "rise") ? 0 : wide ? (openId ? W * 0.17 : -W * 0.07) : 0;
+  const ty = (mode === "dive" || mode === "rise") ? 0 : wide ? -H * 0.02 : (openId ? H * 0.2 : -H * 0.05);
+  if (gViewShift === null || !dt) gViewShift = { x: target, y: ty };
+  else { const k = 1 - Math.pow(0.02, dt); gViewShift.x += (target - gViewShift.x) * k; gViewShift.y += (ty - gViewShift.y) * k; }
+  gCam.setViewOffset(W, H, gViewShift.x, gViewShift.y, W, H);
+  gCam.updateProjectionMatrix();
+}
+
+/* =========================================================
+   4. The 30 m grid of the Chicago region
+   ========================================================= */
+const sScene = new THREE.Scene();
+sScene.background = new THREE.Color(0x060A12);
+sScene.fog = new THREE.FogExp2(0x060A12, 0.0125);
+const sCam = new THREE.PerspectiveCamera(42, W / H, 0.1, 600);
+sScene.add(new THREE.HemisphereLight(0x7a93ff, 0x0a0f1a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff1dc, 0.85); sun.position.set(-40, 70, 30); sScene.add(sun);
+const rim = new THREE.DirectionalLight(0x5b7cff, 0.35); rim.position.set(50, 20, -60); sScene.add(rim);
+
+const N = W < 760 ? 46 : 70, S = 1;
+const CROP = 0, NATURAL = 1, DEV = 2, WATER = 3, FOREST = 4, GRASS = 5, WET = 6;
+const COLORS = {
+  [CROP]: new THREE.Color(0x9C8A5E), [NATURAL]: new THREE.Color(0x24443C), [DEV]: new THREE.Color(0x4A5670),
+  [WATER]: new THREE.Color(0x0F2C4C), [FOREST]: new THREE.Color(0x34D27E), [GRASS]: new THREE.Color(0xF2B53A), [WET]: new THREE.Color(0x8C7CFF),
+};
+const FLASH = new THREE.Color(0xff5a4e);
+function hash(x, y) { let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, s = t => t * t * (3 - 2 * t);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1), u = s(xf), v = s(yf);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y) { let t = 0, a = .5, f = 1; for (let k = 0; k < 4; k++) { t += a * vnoise(x * f, y * f); f *= 2; a *= .5; } return t / .9375; }
+
+const cells = [];
+for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+  const u = i / (N - 1), v = j / (N - 1), n = fbm(u * 5 + 11, v * 5 + 3);
+  const lake = 0.83 + 0.04 * Math.sin(v * 5.5) + (fbm(v * 4, 1.7) - .5) * 0.07;
+  const city = Math.hypot((u - 0.72) * 1.25, v - 0.48);
+  let type, h;
+  if (u > lake) { type = WATER; h = 0.08; }
+  else if (city < 0.2 + (n - .5) * 0.16 || fbm(u * 7 + 40, v * 7) > 0.75) {
+    type = DEV; const core = Math.max(0, 0.14 - city) / 0.14; h = 0.5 + Math.pow(hash(i, j), 3) * (1.5 + core * 14);
+  } else if (Math.abs(fbm(u * 2.6 + 5, v * 2.6 + 9) - 0.5) < 0.02 || fbm(u * 4 + 20, v * 4 + 20) > 0.75) { type = NATURAL; h = 0.6 + n; }
+  else { type = CROP; h = 0.3 + n * 0.18; }
+  cells.push({ i, j, u, v, type, base: type, eligible: false, h: 0, th: h, home: h, flash: 0,
+    delay: Math.hypot(u - .5, v - .5) * 1.4 + hash(i * 3, j * 7) * .25 });
+}
+const crops = cells.filter(c => c.type === CROP);
+crops.map(c => [Math.random(), c]).sort((a, b) => a[0] - b[0]).slice(0, Math.round(crops.length * 0.76)).forEach(([, c]) => { c.eligible = true; });
+const eligibleTotal = crops.filter(c => c.eligible).length;
+
+const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, 0.5, 0);
+const land = new THREE.InstancedMesh(box, new THREE.MeshLambertMaterial(), cells.length);
+const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
+const cellX = c => (c.i - (N - 1) / 2) * S, cellZ = c => (c.j - (N - 1) / 2) * S;
+function writeCell(k) {
+  const c = cells[k];
+  dummy.position.set(cellX(c), 0, cellZ(c)); dummy.scale.set(0.9 * S, Math.max(0.001, c.h), 0.9 * S); dummy.updateMatrix();
+  land.setMatrixAt(k, dummy.matrix);
+  tmpC.copy(COLORS[c.type]); if (c.flash > 0.01) tmpC.lerp(FLASH, c.flash * 0.8);
+  land.setColorAt(k, tmpC);
+}
+cells.forEach((_, k) => writeCell(k));
+sScene.add(land);
+const plate = new THREE.Mesh(new THREE.PlaneGeometry(N * S + 8, N * S + 8), new THREE.MeshBasicMaterial({ color: 0x0A111D }));
+plate.rotation.x = -Math.PI / 2; plate.position.y = -0.02; sScene.add(plate);
+const sgrid = new THREE.GridHelper(N * S * 3, N * 3 / 2, 0x1b2a44, 0x111a2b); sgrid.position.y = -0.03; sScene.add(sgrid);
+const brush = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.45, 64),
+  new THREE.MeshBasicMaterial({ color: 0xEDEFF2, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+brush.rotation.x = -Math.PI / 2; sScene.add(brush);
+
+// sparks
+const SPARKS = 700, sPos = new Float32Array(SPARKS * 3).fill(-999), sCol = new Float32Array(SPARKS * 3);
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute("position", new THREE.BufferAttribute(sPos, 3));
+sparkGeo.setAttribute("color", new THREE.BufferAttribute(sCol, 3));
+sScene.add(new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: 0.9, map: glowTex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
+const sparks = Array.from({ length: SPARKS }, () => ({ life: 0, vx: 0, vy: 0, vz: 0, c: new THREE.Color() }));
+let sparkHead = 0;
+function emit(x, y, z, color, n = 6, spread = 0.25, up = 0.18) {
+  if (reduceMotion) return;
+  for (let k = 0; k < n; k++) {
+    const s = sparks[sparkHead], idx = sparkHead * 3; sparkHead = (sparkHead + 1) % SPARKS;
+    s.life = 1; s.c.copy(color); s.vx = (Math.random() - .5) * spread; s.vz = (Math.random() - .5) * spread; s.vy = up * (0.5 + Math.random());
+    sPos[idx] = x + (Math.random() - .5) * .6; sPos[idx + 1] = y; sPos[idx + 2] = z + (Math.random() - .5) * .6;
+  }
+}
+function updateSparks() {
+  for (let k = 0; k < SPARKS; k++) {
+    const s = sparks[k], idx = k * 3;
+    if (s.life <= 0) { sPos[idx + 1] = -999; continue; }
+    s.life -= 0.016; sPos[idx] += s.vx; sPos[idx + 1] += s.vy; sPos[idx + 2] += s.vz;
+    s.vy *= 0.985; s.vx *= 0.97; s.vz *= 0.97;
+    sCol[idx] = s.c.r * s.life; sCol[idx + 1] = s.c.g * s.life; sCol[idx + 2] = s.c.b * s.life;
+  }
+  sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
+}
+
+// light pillars for the Illinois projects
+const pillars = [];
+(function placePillars() {
+  const ok = cells.filter(c => c.type !== WATER && c.u < 0.8), used = [];
+  GRID_PROJECTS.forEach((id, k) => {
+    const p = PROJECTS[id];
+    const ang = k * 2.39996 + 0.6, rad = 0.06 + 0.33 * Math.sqrt((k + 0.4) / GRID_PROJECTS.length);
+    // a project can pin itself to a real place on the map (Urban Flux sits in the Calumet region, southeast)
+    const tu = p.at ? p.at.u : 0.42 + Math.cos(ang) * rad * 0.95, tv = p.at ? p.at.v : 0.5 + Math.sin(ang) * rad;
+    let best = null, bd = Infinity;
+    for (const c of ok) { const d = Math.hypot(c.u - tu, c.v - tv); if (d < bd && !used.some(o => Math.hypot(o.u - c.u, o.v - c.v) < 0.08)) { bd = d; best = c; } }
+    used.push(best);
+    const col = facetColor(p.facet), height = 8 + (p.size || 1) * 7;
+    const add = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending };
+    const group = new THREE.Group(); group.position.set(cellX(best), 0, cellZ(best));
+    const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, height, 16, 1, true), new THREE.MeshBasicMaterial({ color: col, opacity: 0.16, ...add }));
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, height, 8, 1, true), new THREE.MeshBasicMaterial({ color: col.clone().lerp(new THREE.Color(1, 1, 1), .45), opacity: .95, ...add }));
+    outer.position.y = core.position.y = height / 2;
+    const top = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, opacity: .9, ...add })); top.position.y = height;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.05, 48), new THREE.MeshBasicMaterial({ color: col, opacity: .8, side: THREE.DoubleSide, ...add }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05;
+    group.add(outer, core, top, ring); group.scale.y = 0.001; sScene.add(group);
+    const el = document.createElement("button");
+    el.type = "button"; el.className = "lbl beacon off"; el.dataset.project = id;
+    el.style.setProperty("--h", FACETS[p.facet].hue);
+    el.innerHTML = `<span class="chip"><span class="t"></span><span class="s"></span></span>`;
+    el.querySelector(".t").textContent = p.title; el.querySelector(".s").textContent = p.stat;
+    el.setAttribute("aria-label", `${p.title}: ${p.stat}`);
+    el.addEventListener("click", () => openProject(id));
+    el.addEventListener("pointerenter", () => { hotPillar = id; });
+    el.addEventListener("pointerleave", () => { if (hotPillar === id) hotPillar = null; });
+    el.addEventListener("focus", () => { hotPillar = id; });
+    el.addEventListener("blur", () => { if (hotPillar === id) hotPillar = null; });
+    document.getElementById("gridLabels").appendChild(el);
+    pillars.push({ id, p, group, outer, core, top, ring, height, el, col, rise: 0, delay: 0 });
+  });
+})();
+let hotPillar = null;
+
+const sc = { theta: -0.55, tTheta: -0.55, phi: 0.98, tPhi: 0.98, radius: N * 1.8, tRadius: N * 1.12,
+  target: new THREE.Vector3(), tTarget: new THREE.Vector3(-N * 0.06, 0, 0) };
+let sHome = N * 1.12, gridT0 = 0, gridIntroDone = false;
+function gridHome() { return N * (W / H < 1 ? 1.15 / Math.max(0.45, W / H) * 0.74 : 1.12); }
+let sViewShift = null;
+function applyGridView(dt) {
+  const wide = W >= 760;
+  const tx = wide ? (openId ? W * 0.17 : -W * 0.11) : 0;
+  const ty = wide ? -H * 0.03 : (openId ? H * 0.22 : -H * 0.06);
+  if (sViewShift === null || !dt) sViewShift = { x: tx, y: ty };
+  else { const k = 1 - Math.pow(0.02, dt); sViewShift.x += (tx - sViewShift.x) * k; sViewShift.y += (ty - sViewShift.y) * k; }
+  sCam.setViewOffset(W, H, sViewShift.x, sViewShift.y, W, H);
+  sCam.updateProjectionMatrix();
+}
+function enterGrid() {
+  cells.forEach((c, k) => { c.h = 0; writeCell(k); });
+  pillars.forEach((b, k) => { b.rise = 0; b.delay = 1.0 + k * 0.12; });
+  gridT0 = performance.now(); gridIntroDone = false;
+  sc.radius = N * 0.35; sc.phi = 0.25; sc.tPhi = 0.98; sc.tRadius = sHome = gridHome();
+  sc.target.set(0, 0, 0); sc.tTarget.set(-N * 0.06, 0, 0);
+}
+
+/* =========================================================
+   5. Pointer: mouse, touch, and hand share one model
+   ========================================================= */
+const P = { x: -1, y: -1, nx: 0, ny: 0, vx: 0, vy: 0, active: false, down: false, hand: false };
+let dragging = false;
+function movePointer(x, y) {
+  if (P.active) { P.vx = x - P.x; P.vy = y - P.y; } else { P.vx = P.vy = 0; }
+  P.x = x; P.y = y; P.active = true; P.nx = (x / W) * 2 - 1; P.ny = (y / H) * 2 - 1;
+  if (!dragging) return;
+  if (mode === "globe") { G.try += P.vx * 0.005; G.trx = clamp(G.trx + P.vy * 0.004, -1.1, 1.1); }
+  else if (mode === "grid") { sc.tTheta -= P.vx * 0.006; sc.tPhi = clamp(sc.tPhi - P.vy * 0.004, 0.5, 1.22); }
+}
+function pressPointer() {
+  P.down = true;
+  if (openId) { closePanel(); return; }
+  if (mode !== "globe" && mode !== "grid") return;
+  dragging = true; canvas.classList.add("dragging");
+}
+function releasePointer() {
+  P.down = false; dragging = false; canvas.classList.remove("dragging");
+  if (panelDrag) { glide(panelDrag.v); panelDrag = null; }
+}
+/* ---------- scrolling the panel by hand: pinch, drag, let go ---------- */
+let panelDrag = null, glideId = 0, edgeSpeed = 0;
+(function edgeLoop() {
+  if (edgeSpeed && openId && P.hand) panel.scrollTop += edgeSpeed;
+  requestAnimationFrame(edgeLoop);
+})();
+function glide(v) {
+  const id = ++glideId;
+  const step = () => {
+    if (id !== glideId || Math.abs(v) < 0.4) return;
+    panel.scrollTop -= v; v *= 0.93;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+/* ---------- zoom: buttons, keys, wheel, trackpad pinch, two-finger touch ---------- */
+function zoomBy(f) {
+  if (mode === "globe") G.tdist = clamp(G.tdist * f, 1.6, homeDist() * 1.9);
+  else if (mode === "grid") sc.tRadius = clamp(sc.tRadius * f, N * 0.45, N * 2.4);
+}
+function zoomFit() {
+  if (openId) closePanel();
+  if (mode === "globe") { G.tdist = homeDist(); G.trx = 0.35; }
+  else if (mode === "grid") { sc.tRadius = sHome; sc.tTarget.set(-N * 0.06, 0, 0); sc.tPhi = 0.98; }
+}
+document.getElementById("zoomCtl").addEventListener("click", e => {
+  const b = e.target.closest("[data-zoom]"); if (!b) return;
+  if (b.dataset.zoom === "in") zoomBy(0.8);
+  else if (b.dataset.zoom === "out") zoomBy(1.25);
+  else zoomFit();
+});
+addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("input, textarea")) return;
+  if (e.key === "+" || e.key === "=") zoomBy(0.8);
+  if (e.key === "-" || e.key === "_") zoomBy(1.25);
+  if (e.key === "0") zoomFit();
+});
+const touches = new Map();
+let pinchStart = 0;
+const touchSpan = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+canvas.addEventListener("pointermove", e => {
+  if (touches.has(e.pointerId)) {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) { const d = touchSpan(); if (pinchStart) zoomBy(pinchStart / d); pinchStart = d; return; }
+  }
+  if (!P.hand) movePointer(e.clientX, e.clientY);
+});
+canvas.addEventListener("pointerdown", e => {
+  if (P.hand) return;
+  if (e.pointerType === "touch") {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.size === 2) { releasePointer(); pinchStart = touchSpan(); return; }
+  }
+  canvas.setPointerCapture(e.pointerId); movePointer(e.clientX, e.clientY); pressPointer();
+});
+const endTouch = e => { touches.delete(e.pointerId); if (touches.size < 2) pinchStart = 0; };
+canvas.addEventListener("pointerup", e => { endTouch(e); if (!P.hand) releasePointer(); });
+canvas.addEventListener("pointercancel", e => { endTouch(e); if (!P.hand) releasePointer(); });
+canvas.addEventListener("pointerleave", () => { if (!P.hand && !P.down) P.active = false; });
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoomBy(1 + clamp(e.deltaY, -60, 60) * (e.ctrlKey ? 0.01 : 0.0015));
+}, { passive: false });
+
+/* ---------- painting on the grid ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.4), hit = new THREE.Vector3();
+let converted = 0, milestone = false, groundCell = null;
+const animating = new Set();
+const pickHabitat = () => { const r = Math.random(); return r < 0.7 ? FOREST : r < 0.88 ? GRASS : WET; };
+function paint() {
+  groundCell = null;
+  if (!P.active || openId || !gridIntroDone) { brush.material.opacity *= 0.85; return; }
+  ndc.set(P.nx, -P.ny); ray.setFromCamera(ndc, sCam);
+  if (!ray.ray.intersectPlane(ground, hit)) return;
+  const ci = Math.round(hit.x / S + (N - 1) / 2), cj = Math.round(hit.z / S + (N - 1) / 2);
+  const onMap = ci >= 0 && cj >= 0 && ci < N && cj < N;
+  brush.position.set(hit.x, 0.45, hit.z);
+  brush.material.opacity += ((onMap && !dragging ? 0.75 : 0) - brush.material.opacity) * 0.2;
+  if (!onMap) return;
+  groundCell = cells[cj * N + ci];
+  if (dragging || milestone || !(Math.hypot(P.vx, P.vy) > 0.8 || P.hand)) return;
+  let changed = false;
+  for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+    const i = ci + di, j = cj + dj;
+    if (i < 0 || j < 0 || i >= N || j >= N || Math.hypot(di, dj) > 2.3) continue;
+    const k = j * N + i, c = cells[k];
+    if (c.type === CROP && c.eligible && Math.random() < 0.14) {
+      c.type = pickHabitat(); c.th = c.type === FOREST ? 1.4 + Math.random() * 1.1 : c.type === GRASS ? 0.75 : 0.5;
+      animating.add(k); converted++; changed = true; emit(cellX(c), c.home + 0.3, cellZ(c), COLORS[c.type], 3);
+    } else if (c.type === CROP && !c.eligible && c.flash < 0.2 && Math.random() < 0.1) { c.flash = 1; animating.add(k); }
+  }
+  if (changed) {
+    if (converted >= eligibleTotal * 0.97) cells.forEach((c, k) => { if (c.type === CROP && c.eligible) { c.type = pickHabitat(); c.th = c.type === FOREST ? 1.6 : 0.7; animating.add(k); converted++; } });
+    updateHud();
+  }
+}
+const $ = id => document.getElementById(id);
+const note = $("note"), NOTE_START = note.innerHTML, fmt = n => Math.round(n).toLocaleString("en-US");
+function updateHud() {
+  const acres = converted * 0.222, pct = converted / crops.length * 100;
+  $("rSq").textContent = fmt(converted); $("rAc").textContent = fmt(acres); $("rCo").textContent = fmt(acres * 2.25);
+  $("rGap").textContent = `${Math.round(pct)}%`;
+  document.documentElement.style.setProperty("--p", `${pct.toFixed(1)}%`);
+  if (!milestone && converted >= eligibleTotal) {
+    milestone = true;
+    note.innerHTML = `Stuck at <b>${Math.round(pct)}%</b>? So is the real Chicago region. The red squares failed federal eligibility rules: the land was there, the rules weren’t. <button type="button" data-open="which-acres">See why</button><button type="button" class="ghost" data-reset>Replant</button>`;
+    cells.forEach((c, k) => { if (c.type === CROP) { c.flash = 1; animating.add(k); } });
+  } else if (!milestone && converted > 0) note.textContent = "Every square is about a fifth of an acre. Keep sweeping: how much of the gap can you close?";
+}
+note.addEventListener("click", e => {
+  if (e.target.closest("[data-open]")) openProject("which-acres");
+  if (e.target.closest("[data-reset]")) {
+    cells.forEach((c, k) => { if (c.base === CROP && c.type !== CROP) { c.type = CROP; c.th = c.home; animating.add(k); } });
+    converted = 0; milestone = false; note.innerHTML = NOTE_START; updateHud();
+  }
+});
+
+/* =========================================================
+   6. Dive and rise
+   ========================================================= */
+let diveT = 0;
+const pixCanvas = $("pixels"), pctx = pixCanvas.getContext("2d");
+function drawPixels() {
+  const cols = W < 760 ? 18 : 34, cs = Math.ceil(W / cols), rows = Math.ceil(H / cs) + 1;
+  pixCanvas.width = cols; pixCanvas.height = rows;
+  const pal = ["#9C8A5E", "#9C8A5E", "#9C8A5E", "#A8956A", "#8F7E55", "#24443C", "#4A5670"];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const n = fbm(i / 7 + 3, j / 7 + 9);
+    pctx.fillStyle = i / cols > 0.86 ? "#0F2C4C" : n > 0.66 ? "#24443C" : n < 0.3 ? "#4A5670" : pal[Math.floor(hash(i, j) * pal.length)];
+    pctx.fillRect(i, j, 1, 1);
+  }
+  pctx.fillStyle = "rgba(4,7,14,.55)";
+  for (let j = 0; j <= rows; j++) pctx.fillRect(0, j, cols, 0.04);
+}
+function setPixels(op, zoom) {
+  pixCanvas.style.opacity = op;
+  pixCanvas.style.transform = `scale(${zoom})`;
+}
+const flash = $("flash"), altVal = $("altVal"), altSub = $("altSub");
+const R_EARTH = 6371000;
+function fmtAlt(m) { return m >= 10000 ? `${fmt(m / 1000)} km` : m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${fmt(m)} m`; }
+function shortest(from, to) { let d = (to - from) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return from + d; }
+function startDive() {
+  if (mode !== "globe") return;
+  if (openId) closePanel();
+  releasePointer();
+  G.startRx = G.rx; G.startRy = G.ry; G.startDist = G.dist;
+  G.endRx = CHI.lat * Math.PI / 180; G.endRy = shortest(G.ry, -CHI.lon * Math.PI / 180);
+  diveT = 0; setMode("dive"); drawPixels();
+  altSub.textContent = "Chicago region, 41.88° N, 87.63° W";
+}
+function startRise() {
+  if (mode !== "grid") return;
+  if (openId) closePanel();
+  releasePointer();
+  diveT = 0; setMode("rise");
+  G.rx = G.trx = CHI.lat * Math.PI / 180; G.ry = G.try = -CHI.lon * Math.PI / 180;
+  altSub.textContent = "Back to Earth";
+  drawPixels(); flash.style.opacity = 1;
+}
+$("diveBtn").addEventListener("click", startDive);
+$("backBtn").addEventListener("click", startRise);
+const ALT_START = 14000e3, ALT_END = 30;
+function updateDive(dt) {
+  const dur = reduceMotion ? 0.8 : 3.4;
+  diveT = Math.min(1, diveT + dt / dur);
+  if (mode === "dive") {
+    const r = ease(clamp(diveT / 0.42, 0, 1));
+    G.rx = G.startRx + (G.endRx - G.startRx) * r; G.ry = G.startRy + (G.endRy - G.startRy) * r;
+    G.trx = G.rx; G.try = G.ry;
+    const startAlt = (G.startDist - 1) * R_EARTH;
+    const a = clamp((diveT - 0.12) / 0.88, 0, 1), e = a * a * (3 - 2 * a);
+    const alt = Math.exp(Math.log(startAlt) + (Math.log(ALT_END) - Math.log(startAlt)) * e);
+    G.dist = G.tdist = Math.max(1.0015, 1 + alt / R_EARTH);
+    altVal.textContent = fmtAlt(diveT > 0.985 ? ALT_END : alt);
+    dotMat.uniforms.uSquare.value = clamp((diveT - 0.55) / 0.35, 0, 1);
+    const px = clamp((diveT - 0.7) / 0.18, 0, 1);
+    setPixels(px, 2.6 - 1.6 * px);
+    flash.style.opacity = clamp((diveT - 0.88) / 0.12, 0, 1) * 0.9;
+    if (diveT >= 1) { setMode("grid"); enterGrid(); fadeFlash(); setPixels(0, 1); }
+  } else {
+    const a = ease(diveT);
+    const alt = Math.exp(Math.log(ALT_END) + (Math.log((homeDist() - 1) * R_EARTH) - Math.log(ALT_END)) * a);
+    G.dist = G.tdist = Math.max(1.0015, 1 + alt / R_EARTH);
+    altVal.textContent = fmtAlt(alt);
+    dotMat.uniforms.uSquare.value = 1 - clamp(diveT / 0.4, 0, 1);
+    flash.style.opacity = 1 - clamp(diveT / 0.25, 0, 1);
+    const px = 1 - clamp(diveT / 0.3, 0, 1);
+    setPixels(px, 1 + (1 - px) * 1.6);
+    if (diveT >= 1) { setMode("globe"); G.tdist = homeDist(); setPixels(0, 1); }
+  }
+}
+function fadeFlash() {
+  const t0 = performance.now();
+  const step = now => { const k = clamp((now - t0) / 900, 0, 1); flash.style.opacity = 1 - k; if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* =========================================================
+   7. Facets and the side panel
+   ========================================================= */
+let activeFacet = null, openId = null;
+const facetsEl = $("facets");
+function renderFacets() {
+  const present = new Set(mode === "grid" ? GRID_PROJECTS.map(id => PROJECTS[id].facet) : LOCATIONS.map(l => l.facet));
+  if (activeFacet && !present.has(activeFacet)) activeFacet = null;
+  const items = [["all", "All work", null], ...Object.entries(FACETS).filter(([k]) => present.has(k)).map(([k, f]) => [k, f.label, f.hue])];
+  facetsEl.innerHTML = items.map(([k, label, hue]) => `<button type="button" class="${k === "all" ? "all" : ""}" data-facet="${k}" aria-pressed="${(activeFacet || "all") === k}" ${hue !== null ? `style="--h:${hue}"` : ""}>${label}<i></i></button>`).join("");
+}
+facetsEl.addEventListener("click", e => {
+  const b = e.target.closest("[data-facet]"); if (!b) return;
+  activeFacet = b.dataset.facet === "all" ? null : b.dataset.facet; renderFacets();
+});
+renderFacets();
+
+const panel = $("panel");
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function projectHTML(id, asSection) {
+  const p = PROJECTS[id], f = FACETS[p.facet];
+  const head = asSection
+    ? `<h3>${esc(p.title)}</h3><p class="p-meta">${esc(f.label)}. ${esc(p.when)}. ${esc(p.role)}</p>`
+    : `<p class="p-top">${esc(f.label)}</p><h2 id="pTitle">${esc(p.title)}</h2><p class="p-meta">${esc(p.when)}. ${esc(p.role)}</p>`;
+  return `<div class="${asSection ? "proj" : ""}" style="--ph:${f.hue}">${head}
+    <div class="p-stat"><b>${esc(p.stat)}</b><span>${esc(p.statLabel)}</span></div>
+    <p class="p-qlabel">The question</p><p class="p-q">${esc(p.question)}</p>
+    <p class="p-body">${esc(p.body)}</p>
+    <div class="p-tags">${p.tags.map(t => `<span>${esc(t)}</span>`).join("")}</div>
+    <div class="p-links">${p.links.map(l => `<a href="${l.url}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}</div></div>`;
+}
+function showPanel(html, hue) {
+  panel.style.setProperty("--h", hue);
+  panel.innerHTML = `<div class="edge top"><span>↑</span></div>` + html + `<div class="p-actions"><button type="button" data-close>${mode === "grid" ? "Back to the map" : "Back to the planet"}</button><span class="p-hint">${P.hand ? "Hold your hand near the top or bottom edge to scroll, or pinch and drag. Pinch outside to close." : "Esc also closes"}</span></div><div class="edge bot"><span>↓</span></div>`;
+  panel.scrollTop = 0; panel.classList.add("open"); panel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("focus"); panel.focus({ preventScroll: true });
+}
+panel.addEventListener("click", e => {
+  if (e.target.closest("[data-close]")) closePanel();
+  if (e.target.closest("[data-dive]")) startDive();
+});
+const CV = [
+  ["Education", [
+    "<b>PhD, Landscape Architecture (Technology Track)</b>, University of Illinois Urbana-Champaign, 2023–2027 (expected May 2027). <span>Advisor Prof. Brian Deal. Dissertation: Dynamic Pathways for Climate-Adaptive Landscape Planning.</span>",
+    "<b>Master in Landscape Architecture II</b>, Harvard Graduate School of Design, 2023.",
+    "<b>Bachelor of Landscape Architecture, Highest Honors</b>, University of Illinois Urbana-Champaign, 2020. <span>Study abroad: University of Sheffield (2019) and a rural landscape studio in Cremolino, Italy (2019).</span>"]],
+  ["Research appointments", [
+    "<b>Associate Director and Graduate Research Assistant</b>, LEAM Laboratory, UIUC, 2023–present",
+    "<b>Graduate Research Assistant</b>, Smart Energy Design Assistance Center (SEDAC), UIUC, 2023–2024 <span>Water and energy efficiency strategies with the EPA and under the Illinois Climate and Equitable Jobs Act.</span>",
+    "<b>Research Assistant</b> to Prof. Anita Berrizbeitia, Harvard GSD, 2023",
+    "<b>Research Assistant and Project Designer</b> to Prof. Silvia Benedito, Harvard GSD, 2022"]],
+  ["Peer-reviewed articles", [
+    "<b>Wang</b>, Deal, Zhu, & Gu. Biodiversity, conservation and design thinking: an AI-driven geodesign framework for determining habitat quality. <i>npj Biodiversity</i>, in press, 2026.",
+    "<b>Wang</b>, Deal, Zhu, Chen, & Tao. Conservation enrollment as farm risk management. <i>Landscape Architecture and Sustainability</i>, 2026. <a href=\"https://doi.org/10.1016/j.las.2026.100058\" target=\"_blank\" rel=\"noopener\">DOI</a>",
+    "Tao, <b>Wang</b>, Gu, Deal, Guo, & Song. Green infrastructure and post-disaster economic recovery: evidence from Hurricane Laura. <i>Land</i>, 2026. <a href=\"https://doi.org/10.3390/land15020224\" target=\"_blank\" rel=\"noopener\">DOI</a>",
+    "Zeng & <b>Wang</b>. Green space and sense of place: a systematic review. <i>Regional Science and Environmental Economics</i>, 2025. <a href=\"https://doi.org/10.3390/rsee3010001\" target=\"_blank\" rel=\"noopener\">DOI</a>",
+    "<b>Wang</b>, Tao, & Deal. Street-level climate action: transportation emissions and green infrastructure solutions. <i>Frontiers in Built Environment</i>, 2025. <a href=\"https://doi.org/10.3389/fbuil.2025.1678169\" target=\"_blank\" rel=\"noopener\">DOI</a>",
+    "<b>Wang</b>, Deal, & Hakim. Data-driven multi-scale integration of transportation networks and greenhouse gas emissions. <i>Land</i>, 2025. <a href=\"https://doi.org/10.3390/land14040807\" target=\"_blank\" rel=\"noopener\">DOI</a>",
+    "Zeng, <b>Wang</b>, Lai, & Deal. The carbon sequestration potential of urban landscapes: a state-wide assessment in Illinois. <i>Journal of Digital Landscape Architecture</i>, 2024. <a href=\"https://doi.org/10.14627/537752019\" target=\"_blank\" rel=\"noopener\">DOI</a>"]],
+  ["Book chapters and report", [
+    "<b>Wang</b>, Deal, Gu, Pang, & Tao. Layers, not rings: geospatial modelling for peri-urban transitions in a polycrisis era. In <i>Peri-Urban Transitions</i>, Routledge, forthcoming.",
+    "<b>Wang</b>. Greens on wheels: food, movable resources, urban responses. In <i>Shelter in Place, San Juan Workshop</i>, 2025.",
+    "Deal, Sullivan, <b>Wang</b>, et al. A Natural and Working Lands Climate Planning Framework for the State of Illinois (IL NWL+). LEAM Laboratory, 2025."]],
+  ["Design and studio projects", [
+    "<b>Solar Oasis</b>, Noor solar complex, Ouarzazate, Morocco. Harvard GSD, 2023",
+    "<b>Blue-Green Barrio</b>, Buenos Aires, with the Inter-American Development Bank. Harvard GSD, Fall 2022. <span>Faculty-nominated work, Studio Distinction</span>",
+    "<b>Kora Habitat</b>, Oio, Guinea-Bissau. Harvard GSD, Spring 2022. <span>Studio High Pass</span>",
+    "<b>Greens on Wheels</b>, San Juan, Puerto Rico. UIUC, Spring 2020. <span>Sasaki Day Award; book chapter 2025</span>",
+    "<b>Urban Flux</b>, Calumet region, Illinois and Indiana. UIUC, Fall 2019. <span>ILASLA Merit Award, 2020</span>",
+    "<b>The Tear</b>, Baoling River estuary, Wenchang, Hainan. Professional and individual project, 2019"]],
+  ["Talks and conferences", [
+    "<b>Invited speaker</b>, FAO World Food Forum 2025, Sanya, China",
+    "<b>Invited presentation</b> (co-author), U.S. Climate Alliance, Washington, DC, 2025",
+    "AAG Annual Meeting, New York, 2027 (Which Acres?) and San Francisco, 2026 (the 2029 carbon tipping point)",
+    "City+ 2026, Lesvos; Regional Studies Association 2026, Gothenburg; Urban Affairs Association 2026, Chicago; CELA 2026, Cincinnati",
+    "City+ 2025, University of Oxford; CELA 2025, Portland"]],
+  ["Teaching", [
+    "<b>Guest lecturer</b>, “Every Landscape Is a Carbon Ledger,” LA 437, FA 2026; “Vector Data Collection and Processing,” LA 387, SP 2024",
+    "<b>Teaching assistant</b>, LA 437 Regional Design Studio (FA 2025); UP/LA 480 Sustainable Design Principles (SP 2024, SP 2025); LA 387 Findings of Energy in Landscape (SP 2024); Harvard GSD STU 1401 Canary in the Mine (FA 2022)",
+    "<b>Invited final reviewer</b>, UIUC: LA 437 (FA 2023, FA 2024), LA 281 and LA 234 (SP 2026)"]],
+  ["Grants, prizes, and honors", [
+    "Pauline Tilton Kennedy Prize, UIUC, 2026",
+    "Delegate, World Bank Group Youth Summit, 2025; Spotlight Student, College of Fine and Applied Arts, UIUC, 2025",
+    "Graduate College Conference Travel Award, UIUC, 2025",
+    "Global Intersections Student Research and Project Grant, UIUC, 2024",
+    "Studio Distinction, Blue-Green Barrio, Harvard GSD, 2022; Paul M. Heffernan International Travel Award, 2022",
+    "ASLA Student Merit Award (top 1%), ILASLA Merit Award (Urban Flux), and Sasaki Day Award (Greens on Wheels), 2020",
+    "Gary Kesler Prize (sole undergraduate recipient) and Wadsworth Business Internship Scholarship, 2019; Dean’s List every semester, 2016–2020"]],
+  ["Professional experience", [
+    "<b>Guosen Securities Research Institute</b>, Equity Research Assistant, U.S. TMT, 2026",
+    "<b>World Bank Group, ESMAP</b>, Geo-Analysis Specialist (Intern), 2025",
+    "<b>Strategic Planning Services</b>, Assistant Designer, 2021; <b>HASSELL</b>, Urban Design and Landscape Architecture Intern, 2021",
+    "<b>Challenge Design</b>, Design Consultant, 2019–2020; <b>Turenscape</b>, Summer Intern, 2018"]],
+  ["Service and leadership", [
+    "Abstract reviewer, CELA 2026; PhD student representative, Student Advisory Committee, UIUC (2023–2024, 2025–2026)",
+    "Co-founder and editor, Airing Books Gatherings, Harvard GSD (2021–2023); teaching fellow, Harvard Summit for Young Leaders in China (2020)",
+    "Landscape designer, Illinois Solar Decathlon Team (2019–2020); volunteer instructor, Education Without Barriers (2020)"]],
+  ["Skills and languages", [
+    "<b>Programming</b>: Python (scikit-learn, PyTorch, geospatial libraries), R, GAMS",
+    "<b>Modeling</b>: machine and deep learning, LightGBM surrogates, Bayesian and multi-objective optimization, Monte Carlo, species distribution models",
+    "<b>Geospatial</b>: ArcGIS Pro, QGIS, Google Earth Engine, remote sensing, NPP modeling, spatial statistics, geodesign",
+    "<b>Environment</b>: greenhouse gas accounting, life cycle assessment (SimaPro, OpenLCA), carbon and climate risk analysis",
+    "<b>Design</b>: AutoCAD, Rhino, Adobe Creative Cloud, construction documentation, dashboards",
+    "<b>Languages</b>: Mandarin (native), English (fluent), French (intermediate). LEED Green Associate; member of AAG, AGU, ISPRS, and ASLA."]],
+];
+function openProfile() {
+  openId = "profile";
+  const html = `<p class="p-top">Full profile</p><h2 id="pTitle">Jiajia (Jessica) Wang</h2>
+    <p class="p-meta">PhD candidate, Landscape Architecture, University of Illinois Urbana-Champaign. Associate Director, LEAM Laboratory. jiajiaw2@illinois.edu</p>
+    <div class="cv">${CV.map(([h, items]) => `<h3>${h}</h3><ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("")}</div>`;
+  showPanel(html, 150);
+}
+document.getElementById("profileBtn").addEventListener("click", openProfile);
+function openPlace(id) {
+  const L = LOCATIONS.find(l => l.id === id); openId = "place:" + id;
+  const html = `<p class="p-top">${esc(FACETS[L.facet].label)}</p><h2 id="pTitle">${esc(L.name)}</h2><p class="p-meta">${esc(L.kind)}</p>
+    <p class="p-blurb">${esc(L.blurb)}</p>${L.projects.map(pid => projectHTML(pid, true)).join("")}
+    ${L.hub ? `<div class="p-actions"><button type="button" class="go" data-dive>Dive into the Chicago grid</button></div>` : ""}`;
+  showPanel(html, FACETS[L.facet].hue);
+  // swing the planet so the place faces the camera
+  G.trx = L.lat * Math.PI / 180 * 0.8; G.try = shortest(G.ry, -L.lon * Math.PI / 180); G.tdist = homeDist() * 0.85;
+}
+function openProject(id) {
+  openId = "proj:" + id;
+  showPanel(projectHTML(id, false), FACETS[PROJECTS[id].facet].hue);
+  const b = pillars.find(x => x.id === id);
+  if (b && mode === "grid") {
+    sc.tTarget.set(b.group.position.x, 3, b.group.position.z); sc.tRadius = N * 0.8; sc.tPhi = 0.95;
+    emit(b.group.position.x, b.height, b.group.position.z, b.col, 40, 0.5, 0.1);
+  }
+}
+function closePanel() {
+  openId = null; panel.classList.remove("open"); panel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("focus");
+  if (mode === "grid") { sc.tTarget.set(-N * 0.06, 0, 0); sc.tRadius = sHome; sc.tPhi = 0.98; }
+  else G.tdist = homeDist();
+}
+addEventListener("keydown", e => { if (e.key === "Escape" && openId) closePanel(); });
+
+/* =========================================================
+   8. Frame loop
+   ========================================================= */
+const v3 = new THREE.Vector3(), coordEl = $("coord");
+const TYPE_NAME = { [CROP]: "Cropland", [NATURAL]: "Existing habitat", [DEV]: "Developed", [WATER]: "Lake Michigan", [FOREST]: "New forest", [GRASS]: "New grassland", [WET]: "New wetland" };
+let last = performance.now();
+const tStart = performance.now();
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H);
+  gCam.aspect = sCam.aspect = W / H;
+  sCam.fov = W < 760 ? 50 : 42;
+  dotMat.uniforms.uViewH.value = H / (2 * Math.tan(gCam.fov * Math.PI / 360));
+  if (mode === "globe" && !openId) G.tdist = homeDist();
+  sHome = gridHome(); if (mode === "grid" && !openId) sc.tRadius = sHome;
+  applyGlobeView(); applyGridView();
+}
+addEventListener("resize", resize);
+
+function frameGlobe(t, dt) {
+  if (mode === "dive" || mode === "rise") updateDive(dt);
+  else {
+    if (!dragging && !openId && !reduceMotion) G.try += dt * 0.06;
+    const k = 1 - Math.pow(0.003, dt);
+    G.rx += (G.trx - G.rx) * k; G.ry += (G.try - G.ry) * k; G.dist += (G.tdist - G.dist) * k * 0.7;
+  }
+  globe.rotation.x = G.rx; globe.rotation.y = G.ry;
+  const px = (mode === "globe" && P.active && !dragging) ? P.nx * 0.05 : 0;
+  gCam.position.set(px, 0, G.dist); gCam.lookAt(0, 0, 0);
+  applyGlobeView(dt);
+  dotMat.uniforms.uTime.value = t;
+  dotMat.uniforms.uSize.value = 0.012 * dotSizeMul();
+  const mf = markerFade();
+  dotMat.uniforms.uReveal.value = reduceMotion ? 2 : clamp((t - 0.2) / 2.2, 0, 1.2);
+  const fadeNear = clamp((G.dist - 1.002) / 0.05, 0, 1);
+  ocean.material.uniforms.uFade.value = 0.35 + 0.65 * fadeNear;
+  atmo.material.uniforms.uFade.value = fadeNear;
+  grat.visible = G.dist > 1.08;
+
+  const showLabels = mode === "globe";
+  $("globeLabels").classList.toggle("hidden", !showLabels);
+  for (const pl of places) {
+    const on = !activeFacet || pl.L.facet === activeFacet || pl.L.dive;
+    const appear = clamp((t - pl.delay) / 0.8, 0, 1);
+    const hot = hotPlace === pl.L.id || openId === "place:" + pl.L.id;
+    const pulse = (t * 0.6 + pl.phase) % 1;
+    pl.ring.scale.setScalar(1 + pulse * (pl.L.dive ? 4 : 2.5));
+    pl.ring.material.opacity = (1 - pulse) * 0.8 * appear * (on ? 1 : 0.15) * mf;
+    pl.glow.material.opacity = appear * (on ? (hot ? 1 : 0.8) : 0.15) * mf;
+    pl.glow.scale.setScalar((pl.L.dive ? 0.14 : 0.07) * (hot ? 1.8 : 1) * (1 + Math.sin(t * 2 + pl.phase * 6) * 0.12));
+    pl.spike.material.opacity = appear * (on ? 0.9 : 0.15) * mf;
+    if (pl.arc) {
+      const grow = clamp((t - pl.delay) / 1.2, 0, 1);
+      pl.arc.geometry.setDrawRange(0, Math.floor(ease(grow) * pl.arcLen));
+      pl.arc.material.opacity = (on ? (hot ? 0.9 : 0.4) : 0.06) * mf;
+      const u = ((t * 0.22 + pl.phase) % 1);
+      const idx = Math.min(pl.arcLen - 1, Math.floor(u * (pl.arcLen - 1)));
+      pl.pulse.position.copy(pl.arc.userData.pts[idx]);
+      pl.pulse.material.opacity = grow >= 1 && on ? Math.sin(u * Math.PI) * mf : 0;
+    }
+    if (!showLabels) continue;
+    v3.copy(pl.tip).applyMatrix4(globe.matrixWorld);
+    const facing = v3.clone().normalize().dot(v3.clone().sub(gCam.position).negate().normalize());
+    v3.project(gCam);
+    const x = (v3.x + 1) / 2 * W, y = (1 - v3.y) / 2 * H;
+    pl.el.style.transform = `translate(${x + 8}px, ${y}px) translate(0, -50%)`;
+    pl.el.classList.toggle("off", facing < 0.18 || appear < 0.5);
+    pl.el.classList.toggle("dim", !on);
+    pl.el.classList.toggle("hot", hot);
+    pl.el.style.zIndex = String(Math.round(facing * 100) + (pl.L.dive ? 100 : 0));
+  }
+  renderer.render(gScene, gCam);
+}
+
+function frameGrid(t, dt) {
+  const gt = (performance.now() - gridT0) / 1000;
+  if (!gridIntroDone) {
+    let all = true;
+    cells.forEach((c, k) => { const p = clamp((gt - c.delay) / 0.9, 0, 1); c.h = c.th * (1 - Math.pow(1 - p, 3)); if (p < 1) all = false; writeCell(k); });
+    land.instanceMatrix.needsUpdate = true; land.instanceColor.needsUpdate = true;
+    if (all) gridIntroDone = true;
+  } else if (animating.size) {
+    for (const k of animating) {
+      const c = cells[k]; c.h += (c.th - c.h) * 0.12; c.flash *= 0.94; writeCell(k);
+      if (Math.abs(c.th - c.h) < 0.005 && c.flash < 0.01) { c.h = c.th; c.flash = 0; writeCell(k); animating.delete(k); }
+    }
+    land.instanceMatrix.needsUpdate = true; land.instanceColor.needsUpdate = true;
+  }
+  if (!dragging && !openId && !reduceMotion) sc.tTheta += dt * 0.035;
+  const k = 1 - Math.pow(0.0015, dt);
+  sc.theta += (sc.tTheta - sc.theta) * k; sc.phi += (sc.tPhi - sc.phi) * k * 0.8;
+  sc.radius += (sc.tRadius - sc.radius) * k * 0.6; sc.target.lerp(sc.tTarget, k * 0.7);
+  const px = P.active && !dragging ? P.nx * 0.06 : 0, py = P.active && !dragging ? P.ny * 0.04 : 0;
+  const th = sc.theta + px, ph = clamp(sc.phi + py, 0.2, 1.25);
+  sCam.position.set(sc.target.x + sc.radius * Math.sin(ph) * Math.sin(th), sc.target.y + sc.radius * Math.cos(ph), sc.target.z + sc.radius * Math.sin(ph) * Math.cos(th));
+  sCam.lookAt(sc.target);
+  applyGridView(dt);
+  paint();
+  brush.scale.setScalar(1 + Math.sin(t * 4) * 0.04);
+
+  $("gridLabels").classList.toggle("hidden", false);
+  for (const b of pillars) {
+    const on = !activeFacet || b.p.facet === activeFacet;
+    b.rise += ((gt > b.delay ? 1 : 0) - b.rise) * 0.05;
+    const hot = hotPillar === b.id || openId === "proj:" + b.id, vis = on ? 1 : 0.12;
+    b.group.scale.y = Math.max(0.001, b.rise * (on ? 1 : 0.35));
+    b.outer.material.opacity = (hot ? 0.38 : 0.16) * vis; b.core.material.opacity = (hot ? 1 : 0.85) * vis;
+    b.top.material.opacity = (hot ? 1 : 0.8) * vis;
+    b.top.scale.setScalar((3.2 + (hot ? 1.6 : 0) + Math.sin(t * 2 + b.height) * 0.3) * (b.p.size || 1));
+    const pulse = (t * 0.7 + b.height * 0.1) % 1;
+    b.ring.scale.setScalar(1 + pulse * 2.2); b.ring.material.opacity = (1 - pulse) * 0.7 * vis;
+    if (!reduceMotion && Math.random() < 0.05 * vis) emit(b.group.position.x, 0.4, b.group.position.z, b.col, 1, 0.04, 0.12);
+    v3.set(b.group.position.x, b.height * b.group.scale.y + 1.4, b.group.position.z).project(sCam);
+    const x = (v3.x + 1) / 2 * W, y = (1 - v3.y) / 2 * H;
+    const dist = sCam.position.distanceTo(b.group.position);
+    const s = W < 760 ? clamp(55 / dist, 0.6, 0.95) : clamp(70 / dist, 0.7, 1.15);
+    b.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%) scale(${s})`;
+    b.el.classList.toggle("off", v3.z > 1 || b.rise < 0.6);
+    b.el.classList.toggle("dim", !on); b.el.classList.toggle("hot", hot);
+    b.el.style.zIndex = String(1000 - Math.round(dist));
+  }
+  updateSparks();
+  if (groundCell && P.active && !openId) {
+    const lat = (42.5 - groundCell.v * 1.3).toFixed(3), lon = (88.6 - groundCell.u * 1.1).toFixed(3);
+    const elig = groundCell.type === CROP ? (groundCell.eligible ? ", eligible" : ", not eligible") : "";
+    coordEl.innerHTML = `<b>${TYPE_NAME[groundCell.type]}${elig}</b> ${lat}° N, ${lon}° W`;
+    coordEl.style.transform = `translate(${P.x + 22}px, ${P.y + 18}px)`; coordEl.classList.add("on");
+  } else coordEl.classList.remove("on");
+  renderer.render(sScene, sCam);
+}
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const t = (now - tStart) / 1000;
+  if (mode === "grid") frameGrid(t, dt);
+  else { $("gridLabels").classList.add("hidden"); coordEl.classList.remove("on"); frameGlobe(t, dt); }
+  P.vx *= 0.6; P.vy *= 0.6;
+  requestAnimationFrame(frame);
+}
+
+resize();
+G.tdist = homeDist();
+(async () => {
+  try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch {}
+  document.body.classList.add("ready");
+  requestAnimationFrame(frame);
+})();
+
+/* =========================================================
+   9. Hand gestures (MediaPipe Hand Landmarker)
+   ========================================================= */
+const MP_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL_URLS = ["hand_landmarker.task",
+  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"];
+const PINCH_ON = 0.30, PINCH_OFF = 0.45, SMOOTH = 0.4;
+const startBtn = $("startBtn"), startLabel = $("startLabel"), hintEl = $("hint"), camBox = $("cam");
+const video = $("video"), ov = $("overlay"), octx = ov.getContext("2d"), reticle = $("reticle");
+const LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+const MOUSE_HINT = hintEl.textContent;
+const HAND_HINT = "Pinch and drag to spin. Pinch + or − to zoom. Pinch a place to open it.";
+const NO_HAND = "Raise your hand in front of the camera";
+let landmarker = null, running = false, lastVT = -1, pinchFrames = 0, hx = 0, hy = 0;
+
+startBtn.addEventListener("click", async () => {
+  if (running) { stopHands(); return; }
+  startBtn.disabled = true;
+  try {
+    if (!landmarker) {
+      startLabel.textContent = "Loading hand model…";
+      const { HandLandmarker, FilesetResolver } = await import(`${MP_URL}/vision_bundle.mjs`);
+      const fs = await FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
+      let lastErr;
+      for (const url of MODEL_URLS) {
+        for (const delegate of ["GPU", "CPU"]) {
+          try { landmarker = await HandLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: url, delegate }, runningMode: "VIDEO", numHands: 1 }); break; }
+          catch (e) { lastErr = e; console.warn(`Hand model failed (${url}, ${delegate})`, e); }
+        }
+        if (landmarker) break;
+      }
+      if (!landmarker) throw lastErr;
+    }
+    startLabel.textContent = "Opening camera…";
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+    video.srcObject = stream; await video.play();
+    ov.width = video.videoWidth; ov.height = video.videoHeight;
+  } catch (err) {
+    console.error(err);
+    startBtn.disabled = false; startLabel.textContent = "Use hand gestures";
+    hintEl.textContent = landmarker ? "Camera blocked. Allow camera access in the address bar, then try again."
+      : location.protocol.startsWith("http") ? "The hand model didn’t load. Your network may block cdn.jsdelivr.net or storage.googleapis.com."
+      : "The hand model can’t load here. Open this page from a web server or your live site.";
+    return;
+  }
+  running = true; startBtn.disabled = false; startBtn.classList.add("live");
+  document.body.classList.add("hand-on");
+  startLabel.textContent = "Turn off gestures"; camBox.classList.add("show"); hintEl.textContent = NO_HAND;
+  requestAnimationFrame(handLoop);
+});
+function stopHands() {
+  running = false;
+  video.srcObject?.getTracks().forEach(t => t.stop()); video.srcObject = null;
+  camBox.classList.remove("show"); startBtn.classList.remove("live"); startLabel.textContent = "Use hand gestures";
+  document.body.classList.remove("hand-on"); edgeSpeed = 0;
+  hintEl.textContent = MOUSE_HINT;
+  if (P.down) releasePointer();
+  P.hand = false; P.active = false; reticle.classList.remove("on", "pinched");
+}
+function handLoop() {
+  if (!running) return;
+  if (video.currentTime !== lastVT) {
+    lastVT = video.currentTime;
+    const res = landmarker.detectForVideo(video, performance.now());
+    octx.clearRect(0, 0, ov.width, ov.height);
+    const lm = res.landmarks?.[0];
+    if (lm) { if (!P.hand) hintEl.textContent = HAND_HINT; drawSkeleton(lm); onHand(lm); }
+    else if (P.hand) {
+      if (P.down) releasePointer();
+      P.hand = false; P.active = false; hotPlace = hotPillar = null; edgeSpeed = 0;
+      reticle.classList.remove("on", "pinched"); hintEl.textContent = NO_HAND;
+    }
+  }
+  requestAnimationFrame(handLoop);
+}
+function drawSkeleton(lm) {
+  const w = ov.width, h = ov.height;
+  octx.lineWidth = 2; octx.strokeStyle = "rgba(52,210,126,.9)";
+  for (const [a, b] of LINKS) { octx.beginPath(); octx.moveTo(lm[a].x * w, lm[a].y * h); octx.lineTo(lm[b].x * w, lm[b].y * h); octx.stroke(); }
+  octx.fillStyle = "#EDEFF2";
+  for (const p of lm) { octx.beginPath(); octx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2); octx.fill(); }
+}
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const controlAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest("button, a"); };
+function handPress() {
+  const ctl = controlAt(P.x, P.y);
+  if (ctl && !ctl.closest("#cam")) { P.down = true; ctl.click(); return; }
+  const el = document.elementFromPoint(P.x, P.y);
+  if (openId && el && el.closest("#panel")) {
+    P.down = true; glideId++;
+    panelDrag = { lastY: P.y, v: 0 };
+    return;
+  }
+  pressPointer();
+}
+function onHand(lm) {
+  const mx = (lm[4].x + lm[8].x) / 2, my = (lm[4].y + lm[8].y) / 2;
+  const map = v => clamp((v - 0.15) / 0.7, 0, 1);
+  const tx = map(1 - mx) * W, ty = map(my) * H;
+  if (!P.hand) { hx = tx; hy = ty; P.active = false; }
+  hx += (tx - hx) * SMOOTH; hy += (ty - hy) * SMOOTH;
+  P.hand = true; movePointer(hx, hy);
+  reticle.style.transform = `translate(${hx}px, ${hy}px)`; reticle.classList.add("on");
+  if (panelDrag) {
+    const dy = hy - panelDrag.lastY;
+    panel.scrollTop -= dy * 1.8;
+    panelDrag.v = panelDrag.v * 0.5 + dy * 1.8 * 0.5;
+    panelDrag.lastY = hy;
+  }
+  const under = document.elementFromPoint(hx, hy);
+  const inPanel = !!(openId && under && under.closest("#panel"));
+  reticle.classList.toggle("scroll", inPanel && !under.closest("button, a"));
+  edgeSpeed = 0;
+  if (inPanel && !panelDrag) {
+    const r = panel.getBoundingClientRect(), zone = Math.min(160, r.height * 0.22);
+    if (hy < r.top + zone) edgeSpeed = -Math.pow(1 - (hy - r.top) / zone, 1.5) * 16;
+    else if (hy > r.bottom - zone) edgeSpeed = Math.pow(1 - (r.bottom - hy) / zone, 1.5) * 16;
+  }
+  const et = panel.querySelector(".edge.top"), eb = panel.querySelector(".edge.bot");
+  if (et) et.classList.toggle("active", edgeSpeed < 0 && panel.scrollTop > 0);
+  if (eb) eb.classList.toggle("active", edgeSpeed > 0 && panel.scrollTop + panel.clientHeight < panel.scrollHeight - 1);
+  const over = controlAt(hx, hy);
+  hotPlace = over && over.dataset.place ? over.dataset.place : null;
+  hotPillar = over && over.dataset.project ? over.dataset.project : null;
+  const ratio = dist(lm[4], lm[8]) / (dist(lm[0], lm[9]) || 1e-6);
+  if (!P.down && ratio < PINCH_ON) { if (++pinchFrames >= 2) { reticle.classList.add("pinched"); handPress(); } }
+  else if (P.down && ratio > PINCH_OFF) { pinchFrames = 0; reticle.classList.remove("pinched"); releasePointer(); }
+  else if (!P.down) pinchFrames = 0;
+}
+</script>
+</body>
+</html>
