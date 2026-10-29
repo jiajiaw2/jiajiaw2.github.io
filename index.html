@@ -864,31 +864,34 @@ dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
 dotGeo.setAttribute("aRand", new THREE.Float32BufferAttribute(dotRand, 1));
 const dotMat = new THREE.ShaderMaterial({
   uniforms: { uTime: { value: 0 }, uSize: { value: 0.012 }, uSquare: { value: 0 }, uReveal: { value: 0 }, uPR: { value: PR }, uViewH: { value: H },
-    uWrap: { value: 1.06 }, uLat0: { value: 40.11 * Math.PI / 180 }, uLon0: { value: -88.24 * Math.PI / 180 } },
+    uWrap: { value: 1 }, uLat0: { value: 40.11 * Math.PI / 180 }, uLon0: { value: -88.24 * Math.PI / 180 } },
   vertexShader: `
     attribute float aRand; attribute vec3 color;
     uniform float uTime, uSize, uReveal, uPR, uViewH, uWrap, uLat0, uLon0;
     varying vec3 vColor; varying float vA;
     void main(){
-      // the land starts as a flat map laid on the tangent plane at Champaign and wraps into the sphere
+      // the land starts as a flat sheet centred on Champaign; its curvature grows until it closes into the sphere,
+      // so the sheet stays one continuous surface and its rim is always hidden behind the planet
       vec3 p = normalize(position);
-      float lat = asin(clamp(p.y, -1.0, 1.0)), lon = atan(p.x, p.z);
-      float dl = mod(lon - uLon0 + 3.14159265, 6.28318531) - 3.14159265;
-      float fx = dl * cos(uLat0), fy = lat - uLat0;
       vec3 c = vec3(cos(uLat0) * sin(uLon0), sin(uLat0), cos(uLat0) * cos(uLon0));
       vec3 e = vec3(cos(uLon0), 0.0, -sin(uLon0));
       vec3 nN = cross(c, e);
-      float wr = clamp(uWrap * 1.9 - length(vec2(fx, fy)) * 0.28, 0.0, 1.0);
-      wr = wr * wr * (3.0 - 2.0 * wr);
-      vec3 pos = mix(c * 1.003 + e * fx + nN * fy, position, wr);
+      float lx = dot(p, e), ly = dot(p, nN), lz = dot(p, c);
+      float la = atan(lx, lz), lb = asin(clamp(ly, -1.0, 1.0));
+      float k = max(uWrap, 0.0008), R = 1.0 / k;
+      float a = la * k, b = lb * k;
+      vec3 d = e * (cos(b) * sin(a)) + nN * sin(b) + c * (cos(b) * cos(a));
+      vec3 off = e * (R * cos(b) * sin(a)) + nN * (R * sin(b)) + c * (R * (cos(b) * cos(a) - 1.0));
+      vec3 pos = (c + off) * 1.003;
+      float wr = uWrap;
       vec4 wp = modelMatrix * vec4(pos, 1.0);
-      vec3 n = normalize(mat3(modelMatrix) * mix(c, p, wr));
+      vec3 n = normalize(mat3(modelMatrix) * d);
       float facing = dot(n, normalize(cameraPosition - wp.xyz));
       float rev = smoothstep(aRand - 0.15, aRand, uReveal);
       vA = smoothstep(-0.05, 0.3, facing) * rev * (0.72 + 0.28 * sin(uTime * 1.6 + aRand * 40.0));
       vColor = color;
       vec4 mv = viewMatrix * wp;
-      vA *= 1.0 + (1.0 - wr) * 0.35;
+      vA *= 1.0 + (1.0 - wr) * 0.3;
       gl_PointSize = min(2048.0, uSize * uViewH * uPR / -mv.z);
       gl_Position = projectionMatrix * mv;
     }`,
@@ -1578,8 +1581,8 @@ function frameGlobe(t, dt) {
   atmo.material.uniforms.uFade.value = fadeNear;
   grat.visible = G.dist > 1.08;
   dotMat.uniforms.uWrap.value = I.wrap;
-  if (I.wrap < 1.05) {
-    const sph = clamp((I.wrap - 0.55) / 0.5, 0, 1);
+  if (I.wrap < 0.999) {
+    const sph = clamp((I.wrap - 0.8) / 0.2, 0, 1);
     ocean.material.uniforms.uFade.value *= sph; atmo.material.uniforms.uFade.value *= sph;
     grat.visible = grat.visible && sph > 0.95;
   }
@@ -1849,7 +1852,7 @@ function updateIntro(dt) {
     const alt = Math.exp(Math.log(HAND_ALT) + (Math.log(WRAP_ALT) - Math.log(HAND_ALT)) * e);
     G.dist = G.tdist = 1 + alt / R_EARTH;
     const wr = clamp((t - 0.15) / (IN_WRAP - 0.2), 0, 1);
-    I.wrap = wr * wr * (3 - 2 * wr) * 1.06;
+    I.wrap = wr * wr * (3 - 2 * wr);
     G.rx = G.trx = lat0; G.ry = G.try = lon0 + e * 0.12;
     altVal.textContent = fmtAlt(alt);
     if (alt > 6000e3) altSub.textContent = "Earth";
@@ -1861,7 +1864,7 @@ function updateIntro(dt) {
   G.dist = G.tdist = 1 + alt / R_EARTH;
   G.ry = G.try = lon0 + 0.12 + e * 0.2;
   G.rx = G.trx = lat0 + (0.42 - lat0) * e;
-  I.wrap = 1.06; I.markers = clamp(t / 0.7, 0, 1);
+  I.wrap = 1; I.markers = clamp(t / 0.7, 0, 1);
   altVal.textContent = fmtAlt(alt);
   if (r > 0.35) altBox.classList.add("out");
   if (r >= 1) endIntro(false);
@@ -1869,7 +1872,7 @@ function updateIntro(dt) {
 function endIntro(skipped) {
   if (mode !== "intro") return;
   introCv.style.display = "none"; flash.style.opacity = 0;
-  I.wrap = 1.06; I.markers = 1;
+  I.wrap = 1; I.markers = 1;
   if (skipped) {
     G.rx = G.trx = 0.42; G.ry = G.try = -HOME.lon * Math.PI / 180 + 0.32;
     G.dist = homeDist();
