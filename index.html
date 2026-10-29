@@ -254,8 +254,33 @@
   .welcome-on .hint { opacity: 0 !important; }
   [data-mode="gate"] .ident, [data-mode="gate"] .facets, [data-mode="gate"] .hint, [data-mode="gate"] .topright,
   [data-mode="gate"] .zoom, [data-mode="gate"] .hud { opacity: 0 !important; pointer-events: none !important; }
-  [data-mode="gate"] .welcome { z-index: 27; top: calc(50% + 64px); bottom: auto; width: min(560px, calc(100vw - 32px)); transform: translate(-50%, 12px); transition: opacity .9s, transform .9s; }
-  [data-mode="gate"] .welcome.show { transform: translate(-50%, 0); }
+  [data-mode="gate"] .welcome { opacity: 0 !important; pointer-events: none !important; }
+  .gate { position: fixed; inset: 0; z-index: 27; pointer-events: none; display: none; }
+  [data-mode="gate"] .gate { display: block; }
+  .gate-text {
+    position: absolute; left: 50%; bottom: calc(50% + 78px); transform: translate(-50%, 10px);
+    width: min(600px, calc(100vw - 48px)); margin: 0; text-align: center;
+    font-size: clamp(1rem, 1.6vw, 1.14rem); line-height: 1.75; color: #A9B4C3; font-weight: 400;
+    opacity: 0; transition: opacity 1.2s .25s, transform 1.2s .25s cubic-bezier(.2, .8, .2, 1);
+    text-wrap: balance;
+  }
+  .gate-text b { display: block; color: var(--ink); font-weight: 600; font-size: 1.5em; letter-spacing: -.01em; margin-bottom: 10px; }
+  .gate-text em { font-style: normal; color: var(--forest); }
+  .gate-cta {
+    position: absolute; left: 50%; top: calc(50% + 46px); transform: translateX(-50%);
+    margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .74rem; letter-spacing: .16em;
+    color: rgba(191, 245, 216, .75); white-space: nowrap; opacity: 0; transition: opacity 1s 1.1s;
+  }
+  .gate.show .gate-cta { opacity: 1; animation: ctaPulse 2.4s ease-in-out 2.1s infinite; }
+  @keyframes ctaPulse { 50% { opacity: .45; } }
+  .gate.show .gate-text { opacity: 1; transform: translate(-50%, 0); }
+  #gatePixel {
+    position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; margin: -48px 0 0 -48px;
+    border: 0; border-radius: 12px; background: transparent; cursor: pointer; pointer-events: auto;
+  }
+  #gatePixel:focus-visible { outline: 1px solid rgba(191, 245, 216, .6); outline-offset: 4px; }
+  .gate .tap { display: none; }
+  @media (hover: none) { .gate .click { display: none; } .gate .tap { display: inline; } }
   .welcome p { margin: 0; font-size: .97rem; line-height: 1.55; color: #C9D0DB; }
   .welcome p b { color: var(--ink); font-weight: 600; }
   .welcome .inline {
@@ -465,6 +490,11 @@
 <div class="labels hidden" id="gridLabels"></div>
 <canvas id="pixels" aria-hidden="true"></canvas>
 <canvas id="intro" aria-hidden="true"></canvas>
+<div class="gate" id="gate">
+  <p class="gate-text"><b>Hi, I’m Jiajia.</b>Every light on this planet is a place my work has taken me. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
+  <button type="button" id="gatePixel" aria-label="Enter: zoom out from one 30 meter pixel to the planet"></button>
+  <p class="gate-cta"><span class="click">CLICK THE PIXEL TO ENTER</span><span class="tap">TAP THE PIXEL TO ENTER</span></p>
+</div>
 <div id="flash"></div>
 <button type="button" class="skip-intro" id="skipIntro">Skip intro</button>
 
@@ -833,19 +863,32 @@ dotGeo.setAttribute("position", new THREE.Float32BufferAttribute(dotPos, 3));
 dotGeo.setAttribute("color", new THREE.Float32BufferAttribute(dotCol, 3));
 dotGeo.setAttribute("aRand", new THREE.Float32BufferAttribute(dotRand, 1));
 const dotMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uSize: { value: 0.012 }, uSquare: { value: 0 }, uReveal: { value: 0 }, uPR: { value: PR }, uViewH: { value: H } },
+  uniforms: { uTime: { value: 0 }, uSize: { value: 0.012 }, uSquare: { value: 0 }, uReveal: { value: 0 }, uPR: { value: PR }, uViewH: { value: H },
+    uWrap: { value: 1.06 }, uLat0: { value: 40.11 * Math.PI / 180 }, uLon0: { value: -88.24 * Math.PI / 180 } },
   vertexShader: `
     attribute float aRand; attribute vec3 color;
-    uniform float uTime, uSize, uReveal, uPR, uViewH;
+    uniform float uTime, uSize, uReveal, uPR, uViewH, uWrap, uLat0, uLon0;
     varying vec3 vColor; varying float vA;
     void main(){
-      vec4 wp = modelMatrix * vec4(position, 1.0);
-      vec3 n = normalize(wp.xyz);
+      // the land starts as a flat map laid on the tangent plane at Champaign and wraps into the sphere
+      vec3 p = normalize(position);
+      float lat = asin(clamp(p.y, -1.0, 1.0)), lon = atan(p.x, p.z);
+      float dl = mod(lon - uLon0 + 3.14159265, 6.28318531) - 3.14159265;
+      float fx = dl * cos(uLat0), fy = lat - uLat0;
+      vec3 c = vec3(cos(uLat0) * sin(uLon0), sin(uLat0), cos(uLat0) * cos(uLon0));
+      vec3 e = vec3(cos(uLon0), 0.0, -sin(uLon0));
+      vec3 nN = cross(c, e);
+      float wr = clamp(uWrap * 1.9 - length(vec2(fx, fy)) * 0.28, 0.0, 1.0);
+      wr = wr * wr * (3.0 - 2.0 * wr);
+      vec3 pos = mix(c * 1.003 + e * fx + nN * fy, position, wr);
+      vec4 wp = modelMatrix * vec4(pos, 1.0);
+      vec3 n = normalize(mat3(modelMatrix) * mix(c, p, wr));
       float facing = dot(n, normalize(cameraPosition - wp.xyz));
       float rev = smoothstep(aRand - 0.15, aRand, uReveal);
       vA = smoothstep(-0.05, 0.3, facing) * rev * (0.72 + 0.28 * sin(uTime * 1.6 + aRand * 40.0));
       vColor = color;
       vec4 mv = viewMatrix * wp;
+      vA *= 1.0 + (1.0 - wr) * 0.35;
       gl_PointSize = min(2048.0, uSize * uViewH * uPR / -mv.z);
       gl_Position = projectionMatrix * mv;
     }`,
@@ -940,19 +983,22 @@ function homeDist() { return W / H < 1 ? 4.3 / Math.max(0.5, (W / H) * 1.35) : 4
 // during the dive the dots shrink into a star-field, then swell into squares
 function dotSizeMul() {
   if (mode === "dive") return diveT < 0.8 ? 1 - 0.85 * clamp((diveT - 0.15) / 0.5, 0, 1) : 0.15 + 1.4 * clamp((diveT - 0.8) / 0.2, 0, 1);
+  if (mode === "intro" || mode === "gate") return clamp((G.dist - 1) / 1.1, 0.24, 1);
   if (mode === "rise") return diveT < 0.15 ? 1.55 - 1.4 * (diveT / 0.15) : 0.15 + 0.85 * clamp((diveT - 0.35) / 0.6, 0, 1);
   return 1;
 }
 function markerFade() {
   if (mode === "dive") return 1 - clamp(diveT / 0.45, 0, 1);
   if (mode === "rise") return clamp((diveT - 0.55) / 0.45, 0, 1);
+  if (mode === "intro" || mode === "gate") return I.markers;
   return 1;
 }
 let gViewShift = null;
 function applyGlobeView(dt) {
   const wide = W >= 760;
-  const target = (mode === "dive" || mode === "rise") ? 0 : wide ? (openId ? W * 0.17 : -W * 0.07) : 0;
-  const ty = (mode === "dive" || mode === "rise") ? 0 : wide ? -H * 0.02 : (openId ? H * 0.2 : -H * 0.05);
+  const centered = mode === "dive" || mode === "rise" || mode === "gate" || (mode === "intro" && I.phase !== "out");
+  const target = centered ? 0 : wide ? (openId ? W * 0.17 : -W * 0.07) : 0;
+  const ty = centered ? 0 : wide ? -H * 0.02 : (openId ? H * 0.2 : -H * 0.05);
   if (gViewShift === null || !dt) gViewShift = { x: target, y: ty };
   else { const k = 1 - Math.pow(0.02, dt); gViewShift.x += (target - gViewShift.x) * k; gViewShift.y += (ty - gViewShift.y) * k; }
   gCam.setViewOffset(W, H, gViewShift.x, gViewShift.y, W, H);
@@ -1531,6 +1577,12 @@ function frameGlobe(t, dt) {
   ocean.material.uniforms.uFade.value = 0.35 + 0.65 * fadeNear;
   atmo.material.uniforms.uFade.value = fadeNear;
   grat.visible = G.dist > 1.08;
+  dotMat.uniforms.uWrap.value = I.wrap;
+  if (I.wrap < 1.05) {
+    const sph = clamp((I.wrap - 0.55) / 0.5, 0, 1);
+    ocean.material.uniforms.uFade.value *= sph; atmo.material.uniforms.uFade.value *= sph;
+    grat.visible = grat.visible && sph > 0.95;
+  }
 
   const showLabels = mode === "globe";
   $("globeLabels").classList.toggle("hidden", !showLabels);
@@ -1538,7 +1590,7 @@ function frameGlobe(t, dt) {
     const on = !activeFacet || pl.L.facet === activeFacet || pl.L.dive;
     const appear = clamp((t - pl.delay) / 0.8, 0, 1);
     const hot = hotPlace === pl.L.id || openId === "place:" + pl.L.id;
-    const pulse = (t * 0.6 + pl.phase) % 1;
+    const pulse = (((t * 0.6 + pl.phase) % 1) + 1) % 1;
     pl.ring.scale.setScalar(1 + pulse * (pl.L.dive ? 4 : 2.5));
     pl.ring.material.opacity = (1 - pulse) * 0.8 * appear * (on ? 1 : 0.15) * mf;
     pl.glow.material.opacity = appear * (on ? (hot ? 1 : 0.8) : 0.15) * mf;
@@ -1548,7 +1600,7 @@ function frameGlobe(t, dt) {
       const grow = clamp((t - pl.delay) / 1.2, 0, 1);
       pl.arc.geometry.setDrawRange(0, Math.floor(ease(grow) * pl.arcLen));
       pl.arc.material.opacity = (on ? (hot ? 0.9 : 0.4) : 0.06) * mf;
-      const u = ((t * 0.22 + pl.phase) % 1);
+      const u = (((t * 0.22 + pl.phase) % 1) + 1) % 1;
       const idx = Math.min(pl.arcLen - 1, Math.floor(u * (pl.arcLen - 1)));
       pl.pulse.position.copy(pl.arc.userData.pts[idx]);
       pl.pulse.material.opacity = grow >= 1 && on ? Math.sin(u * Math.PI) * mf : 0;
@@ -1564,7 +1616,8 @@ function frameGlobe(t, dt) {
     pl.el.classList.toggle("hot", hot);
     pl.el.style.zIndex = String(Math.round(facing * 100) + (pl.L.dive ? 100 : 0));
   }
-  renderer.render(gScene, gCam);
+  const covered = mode === "gate" || (mode === "intro" && I.phase === "pixels" && I.t < IN_ZOOM - IN_X - 0.1);
+  if (!covered || I.warm < 4) { renderer.render(gScene, gCam); I.warm++; }
 }
 
 function frameGrid(t, dt) {
@@ -1635,150 +1688,141 @@ function frame(now) {
 
 /* ---------- opening: from one 30 m pixel to the planet ---------- */
 const HOME = { lat: 40.11, lon: -88.24 };
-const introCv = $("intro"), ictx = introCv.getContext("2d"), altBox = $("altBox");
-const I = { phase: "off", t: 0, land: null };
-const IN_PIX = 0.7, IN_ZOOM = 3.0, IN_FADE = 0.45, IN_RISE = 1.9, HAND_ALT = 5200e3;
+const introCv = $("intro"), ictx = introCv.getContext("2d"), altBox = $("altBox"), gateEl = $("gate");
+const I = { phase: "off", t: 0, hover: false, markers: 1, wrap: 1, warm: 0, vg: null };
+const IN_PIX = 0.6, IN_ZOOM = 2.5, IN_X = 0.5, IN_WRAP = 2.2, IN_OUT = 1.4;
+const HAND_ALT = 2600e3, WRAP_ALT = 9500e3;
 let landFull = false;
 function sizeIntro() {
-  const d = Math.min(devicePixelRatio || 1, 2);
-  introCv.width = innerWidth * d; introCv.height = innerHeight * d;
+  const d = Math.min(devicePixelRatio || 1, 1.5);
+  introCv.width = Math.round(innerWidth * d); introCv.height = Math.round(innerHeight * d);
   ictx.setTransform(d, 0, 0, d, 0, 0);
+  const w = innerWidth, h = innerHeight;
+  I.vg = ictx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.hypot(w, h) * 0.6);
+  I.vg.addColorStop(0, "rgba(4,7,14,0)"); I.vg.addColorStop(1, "rgba(4,7,14,.9)");
 }
-function buildIntroLand() {
-  const MW = 512, MH = 256, out = [];
-  const rx = HOME.lat * Math.PI / 180, ry = -HOME.lon * Math.PI / 180;
-  const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
-  for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
-    const k = j * MW + i;
-    if (!((MASK[k >> 3] >> (k & 7)) & 1)) continue;
-    const lat = (90 - (j + 0.5) / MH * 180) * Math.PI / 180, lon = ((i + 0.5) / MW * 360 - 180) * Math.PI / 180;
-    let x = Math.cos(lat) * Math.sin(lon), y = Math.sin(lat), z = Math.cos(lat) * Math.cos(lon);
-    const x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
-    const y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx;
-    out.push(x1, y2, z2, hash(i, j));
+
+// each zoom octave is pre-rendered once as a tiny tile (one texel per cell), then scaled up crisply
+const TILE = 128, TILE_PAL = [[5, 10, 20], [11, 32, 39], [17, 27, 46], [12, 22, 40], [14, 26, 48]];
+const tiles = [];
+function buildTile(lv) {
+  if (tiles[lv]) return tiles[lv];
+  const cv = document.createElement("canvas"); cv.width = cv.height = TILE;
+  const c = cv.getContext("2d"), img = c.createImageData(TILE, TILE), dots = new Uint8Array(TILE * TILE);
+  for (let b = 0; b < TILE; b++) for (let a = 0; a < TILE; a++) {
+    const i = a - TILE / 2, j = b - TILE / 2;
+    const n = fbm(i / 6 + lv * 13.1, j / 6 + lv * 7.7), r = hash(i * 17 + lv * 101, j * 31 + lv * 57);
+    const k = n > 0.7 ? 0 : n > 0.58 ? 1 : n < 0.28 ? 2 : (r < 0.5 ? 3 : 4);
+    const o = (b * TILE + a) * 4, col = TILE_PAL[k];
+    img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+    if (r > 0.9) dots[b * TILE + a] = k === 1 ? 2 : 1;
   }
-  return new Float32Array(out);
+  c.putImageData(img, 0, 0);
+  return (tiles[lv] = { cv, dots });
 }
-function introCell(i, j, lvl) {
-  const n = fbm(i / 6 + lvl * 13.1, j / 6 + lvl * 7.7), r = hash(i * 17 + lvl * 101, j * 31 + lvl * 57);
-  // a cool, near-black data field: water darkest, vegetation teal, land navy
-  const fill = n > 0.7 ? "#050A14" : n > 0.58 ? "#0B2027" : n < 0.28 ? "#111B2E" : (r < 0.5 ? "#0C1628" : "#0E1A30");
-  const dot = r > 0.9 ? (n > 0.58 && n <= 0.7 ? "#5FE0C2" : "#9DB6E6") : null;
-  return [fill, dot, r];
-}
+function warmTiles(lv = 0) { if (lv > 8) return; buildTile(lv); setTimeout(() => warmTiles(lv + 1), 30); }
+
 function introAlt(t) {
   const u = clamp((t - IN_PIX) / (IN_ZOOM - IN_PIX), 0, 1), e = u * u * (3 - 2 * u);
   return Math.exp(Math.log(30) + (Math.log(HAND_ALT) - Math.log(30)) * e);
 }
 function drawIntro(t, alt) {
   const w = innerWidth, h = innerHeight, cx = w / 2, cy = h / 2;
-  const F = (h / 2) / Math.tan(gCam.fov * Math.PI / 360);
   ictx.globalAlpha = 1; ictx.fillStyle = "#04070E"; ictx.fillRect(0, 0, w, h);
-  // the planet seen from this altitude, with the same camera as the real globe
-  const d = 1 + alt / R_EARTH, landA = clamp(Math.log(alt / 180e3) / Math.log(1400e3 / 180e3), 0, 1);
-  if (landA > 0) {
-    const rs = F / Math.sqrt(d * d - 1);
-    ictx.globalAlpha = landA * clamp(Math.log(alt / 900e3) / Math.log(4), 0, 1); ictx.fillStyle = "#081426";
-    ictx.beginPath(); ictx.arc(cx, cy, Math.min(rs, Math.hypot(w, h)), 0, Math.PI * 2); ictx.fill();
-    const L = I.land, cell = 0.0123, zmin = 1 / d;
-    for (let k = 0; k < L.length; k += 4) {
-      const z = L[k + 2]; if (z <= zmin) continue;
-      const q = F / (d - z), x = cx + L[k] * q, y = cy - L[k + 1] * q;
-      const sz = clamp(cell * q * 0.42, 1.3, 3.2);
-      if (x < -sz || x > w + sz || y < -sz || y > h + sz) continue;
-      const lum = 0.55 + 0.45 * Math.min(1, (z - zmin) / (1 - zmin) * 3);
-      ictx.globalAlpha = landA * lum * (0.7 + 0.3 * L[k + 3]);
-      ictx.fillStyle = L[k + 3] > 0.93 ? "#5FE0C2" : "#9DB7D3";
-      ictx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+  const base = Math.max(26, Math.min(w, h) * 0.05);
+  const span = Math.log(alt / 30) / Math.log(6), lvl = Math.max(0, Math.floor(span)), fr = span - lvl;
+  const grow = I.phase === "gate" ? 0 : clamp((t - IN_PIX + 0.15) / 0.5, 0, 1);
+  ictx.imageSmoothingEnabled = false;
+  for (let Lv = 0; Lv < 2; Lv++) {
+    const lv = lvl + Lv, cs = base * Math.pow(6, lv) * 30 / alt;
+    const al = Lv === 0 ? 1 - clamp((fr - 0.55) / 0.45, 0, 1) : clamp((fr - 0.35) / 0.5, 0, 1);
+    if (cs < 2 || al <= 0 || (lv === 0 && grow <= 0)) continue;
+    const T = buildTile(lv), tw = TILE * cs, ox = cx - (TILE / 2) * cs - cs / 2, oy = cy - (TILE / 2) * cs - cs / 2;
+    ictx.save();
+    if (lv === 0) { ictx.beginPath(); ictx.arc(cx, cy, grow * Math.hypot(w, h) * 0.6 + cs * 1.2, 0, Math.PI * 2); ictx.clip(); }
+    ictx.globalAlpha = al;
+    const k0 = Math.floor(-ox / tw), k1 = Math.floor((w - ox) / tw), m0 = Math.floor(-oy / tw), m1 = Math.floor((h - oy) / tw);
+    for (let kx = k0; kx <= k1; kx++) for (let ky = m0; ky <= m1; ky++) ictx.drawImage(T.cv, ox + kx * tw, oy + ky * tw, tw, tw);
+    // hairline grid
+    if (cs > 5) {
+      ictx.globalAlpha = al * 0.55; ictx.strokeStyle = cs > 14 ? "rgba(4, 7, 14, .9)" : "rgba(120, 160, 255, .10)"; ictx.lineWidth = 1;
+      ictx.beginPath();
+      const gx = ((ox % cs) + cs) % cs, gy = ((oy % cs) + cs) % cs;
+      for (let x = gx; x < w; x += cs) { ictx.moveTo(Math.round(x) + .5, 0); ictx.lineTo(Math.round(x) + .5, h); }
+      for (let y = gy; y < h; y += cs) { ictx.moveTo(0, Math.round(y) + .5); ictx.lineTo(w, Math.round(y) + .5); }
+      ictx.stroke();
     }
-  }
-  // farmland pixels, one octave inside the next
-  const gridA = 1 - clamp(Math.log(alt / 500e3) / Math.log(2600e3 / 500e3), 0, 1);
-  if (gridA > 0) {
-    const base = Math.max(26, Math.min(w, h) * 0.05);
-    const span = Math.log(alt / 30) / Math.log(6), lvl = Math.floor(span), fr = span - lvl;
-    const grow = clamp((t - IN_PIX + 0.15) / 0.5, 0, 1);
-    for (let Lv = 0; Lv < 2; Lv++) {
-      const lv = lvl + Lv, cs = base * Math.pow(6, lv) * 30 / alt;
-      const al = (Lv === 0 ? 1 - clamp((fr - 0.55) / 0.45, 0, 1) : clamp((fr - 0.35) / 0.5, 0, 1)) * gridA;
-      if (cs < 2.5 || al <= 0) continue;
-      const n = Math.ceil(Math.max(w, h) / cs / 2) + 1, gap = cs > 10 ? 1 : 0;
-      for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
-        if (lv === 0 && i === 0 && j === 0) continue;
-        const dd = Math.hypot(i, j);
-        if (lv === 0 && dd > grow * (n + 3)) continue;
-        const a0 = al * (lv === 0 ? clamp(grow * (n + 3) - dd, 0, 1) : 1);
-        const [fill, dot, r] = introCell(i, j, lv);
-        const x = cx + i * cs - cs / 2, y = cy + j * cs - cs / 2;
-        ictx.globalAlpha = a0; ictx.fillStyle = fill;
-        ictx.fillRect(x + gap, y + gap, cs - gap, cs - gap);
-        if (dot) {
-          const ds = Math.max(1.2, cs * 0.16);
-          ictx.globalAlpha = a0 * (0.55 + 0.45 * Math.sin(t * 3 + r * 40));
-          ictx.fillStyle = dot; ictx.fillRect(x + cs / 2 - ds / 2, y + cs / 2 - ds / 2, ds, ds);
+    // sensor dots in a few cells
+    if (cs >= 9) {
+      const i0 = Math.floor((0 - ox) / cs), i1 = Math.ceil((w - ox) / cs), j0 = Math.floor((0 - oy) / cs), j1 = Math.ceil((h - oy) / cs);
+      const ds = Math.max(1.5, cs * 0.16);
+      for (let pass = 1; pass <= 2; pass++) {
+        ictx.fillStyle = pass === 1 ? "#9DB6E6" : "#5FE0C2"; ictx.globalAlpha = al * 0.85;
+        for (let j = j0; j < j1; j++) {
+          const b = ((j % TILE) + TILE) % TILE;
+          for (let i = i0; i < i1; i++) {
+            const a = ((i % TILE) + TILE) % TILE;
+            if (T.dots[b * TILE + a] !== pass) continue;
+            ictx.fillRect(ox + i * cs + cs / 2 - ds / 2, oy + j * cs + cs / 2 - ds / 2, ds, ds);
+          }
         }
       }
-      if (cs > 5) {
-        ictx.globalAlpha = al * 0.5 * (lv === 0 ? grow : 1); ictx.strokeStyle = "rgba(120, 160, 255, .16)"; ictx.lineWidth = 1;
-        ictx.beginPath();
-        const ox = ((cx - cs / 2) % cs + cs) % cs, oy = ((cy - cs / 2) % cs + cs) % cs;
-        for (let x = ox; x < w; x += cs) { ictx.moveTo(Math.round(x) + .5, 0); ictx.lineTo(Math.round(x) + .5, h); }
-        for (let y = oy; y < h; y += cs) { ictx.moveTo(0, Math.round(y) + .5); ictx.lineTo(w, Math.round(y) + .5); }
-        ictx.stroke();
-      }
     }
-    // the first pixel: glowing cell, crosshair and corner brackets
-    const c0 = Math.max(2, base * 30 / alt), pa = Math.min(1, gridA * 1.5);
-    const blink = I.phase === "gate" ? 0.7 + 0.3 * Math.sin(performance.now() / 1000 * 2.6) : t < IN_PIX ? 0.6 + 0.4 * Math.sin(t * 9) : 1;
-    ictx.globalAlpha = pa * 0.35 * clamp(1 - (alt - 30) / 300, 0, 1);
-    ictx.strokeStyle = "#34D27E"; ictx.lineWidth = 1; ictx.beginPath();
-    ictx.moveTo(0, cy + .5); ictx.lineTo(cx - c0, cy + .5); ictx.moveTo(cx + c0, cy + .5); ictx.lineTo(w, cy + .5);
-    ictx.moveTo(cx + .5, 0); ictx.lineTo(cx + .5, cy - c0); ictx.moveTo(cx + .5, cy + c0); ictx.lineTo(cx + .5, h);
-    ictx.stroke();
-    ictx.globalAlpha = pa * blink;
-    ictx.fillStyle = "#34D27E"; ictx.shadowColor = "rgba(52, 210, 126, .95)"; ictx.shadowBlur = c0 > 4 ? 28 : 14;
-    ictx.fillRect(cx - c0 / 2, cy - c0 / 2, c0, c0); ictx.shadowBlur = 0;
-    const br = c0 / 2 + 7 + 4 * (1 - grow), bl = Math.max(5, c0 * 0.3);
-    ictx.globalAlpha = pa * clamp(1 - (alt - 30) / 150, 0, 1); ictx.strokeStyle = "#BFF5D8"; ictx.lineWidth = 1.2; ictx.beginPath();
-    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      ictx.moveTo(cx + sx * br, cy + sy * (br - bl)); ictx.lineTo(cx + sx * br, cy + sy * br); ictx.lineTo(cx + sx * (br - bl), cy + sy * br);
-    }
-    ictx.stroke();
-    ictx.font = "500 11px ui-monospace, SFMono-Regular, Menlo, monospace"; ictx.fillStyle = "#BFF5D8";
-    ictx.fillText("30 × 30 m", cx + br + 8, cy - br + 10);
-    if (I.phase !== "gate" && t < IN_PIX + 0.2) {
-      const sy = (t / (IN_PIX + 0.2)) * h;
-      const sg = ictx.createLinearGradient(0, sy - 60, 0, sy);
-      sg.addColorStop(0, "rgba(52,210,126,0)"); sg.addColorStop(1, "rgba(52,210,126,.10)");
-      ictx.globalAlpha = 1; ictx.fillStyle = sg; ictx.fillRect(0, sy - 60, w, 60);
-    }
-    const vg = ictx.createRadialGradient(cx, cy, Math.min(w, h) * 0.2, cx, cy, Math.hypot(w, h) * 0.6);
-    vg.addColorStop(0, "rgba(4,7,14,0)"); vg.addColorStop(1, "rgba(4,7,14,.9)");
-    ictx.globalAlpha = gridA; ictx.fillStyle = vg; ictx.fillRect(0, 0, w, h);
+    ictx.restore();
   }
-  ictx.globalAlpha = 1;
+  ictx.imageSmoothingEnabled = true;
+  // the first pixel: glowing cell, crosshair and corner brackets
+  const c0 = Math.max(2, base * 30 / alt);
+  const hov = I.phase === "gate" && I.hover ? 1 : 0;
+  const blink = I.phase === "gate" ? 0.72 + 0.28 * Math.sin(performance.now() / 1000 * 2.6) + hov * 0.3 : t < IN_PIX ? 0.6 + 0.4 * Math.sin(t * 9) : 1;
+  ictx.globalAlpha = (0.3 + hov * 0.25) * clamp(1 - (alt - 30) / 300, 0, 1);
+  ictx.strokeStyle = "#34D27E"; ictx.lineWidth = 1; ictx.beginPath();
+  ictx.moveTo(0, cy + .5); ictx.lineTo(cx - c0, cy + .5); ictx.moveTo(cx + c0, cy + .5); ictx.lineTo(w, cy + .5);
+  if (I.phase !== "gate") { ictx.moveTo(cx + .5, 0); ictx.lineTo(cx + .5, cy - c0); ictx.moveTo(cx + .5, cy + c0); ictx.lineTo(cx + .5, h); }
+  ictx.stroke();
+  ictx.globalAlpha = Math.min(1, blink);
+  ictx.fillStyle = "#34D27E"; ictx.shadowColor = "rgba(52, 210, 126, .95)"; ictx.shadowBlur = (c0 > 4 ? 28 : 14) + hov * 16;
+  ictx.fillRect(cx - c0 / 2, cy - c0 / 2, c0, c0); ictx.shadowBlur = 0;
+  const br = c0 / 2 + 7 + 4 * (1 - grow) + hov * 5, bl = Math.max(5, c0 * 0.3);
+  ictx.globalAlpha = clamp(1 - (alt - 30) / 150, 0, 1); ictx.strokeStyle = "#BFF5D8"; ictx.lineWidth = 1.2; ictx.beginPath();
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    ictx.moveTo(cx + sx * br, cy + sy * (br - bl)); ictx.lineTo(cx + sx * br, cy + sy * br); ictx.lineTo(cx + sx * (br - bl), cy + sy * br);
+  }
+  ictx.stroke();
+  ictx.font = "500 11px ui-monospace, SFMono-Regular, Menlo, monospace"; ictx.fillStyle = "#BFF5D8";
+  ictx.fillText("30 × 30 m", cx + br + 8, cy - br + 10);
+  if (I.phase !== "gate" && t < IN_PIX + 0.2) {
+    const sy = (t / (IN_PIX + 0.2)) * h;
+    const sg = ictx.createLinearGradient(0, sy - 60, 0, sy);
+    sg.addColorStop(0, "rgba(52,210,126,0)"); sg.addColorStop(1, "rgba(52,210,126,.10)");
+    ictx.globalAlpha = 1; ictx.fillStyle = sg; ictx.fillRect(0, sy - 60, w, 60);
+  }
+  ictx.globalAlpha = 1; ictx.fillStyle = I.vg; ictx.fillRect(0, 0, w, h);
 }
+
 function startGate() {
-  if (!I.land) I.land = buildIntroLand();
   sizeIntro(); introCv.style.display = "block"; introCv.style.opacity = 1;
-  I.phase = "gate"; I.t = 0;
+  I.phase = "gate"; I.t = 0; I.markers = 0; I.wrap = 0; landFull = true;
   G.rx = G.trx = HOME.lat * Math.PI / 180; G.ry = G.try = -HOME.lon * Math.PI / 180;
   G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
   setMode("gate");
-  setTimeout(showGate, reduceMotion ? 0 : 500);
+  requestAnimationFrame(() => gateEl.classList.add("show"));
+  warmTiles();
 }
 function leaveGate() {
   if (mode !== "gate") return;
+  gateEl.classList.remove("show");
   if (reduceMotion) { setMode("intro"); endIntro(true); return; }
   startIntro();
 }
+$("gatePixel").addEventListener("click", leaveGate);
+$("gatePixel").addEventListener("pointerenter", () => { I.hover = true; });
+$("gatePixel").addEventListener("pointerleave", () => { I.hover = false; });
+gateEl.addEventListener("click", e => { if (e.target.closest("[data-w='go']")) leaveGate(); });
+
 function startIntro() {
-  if (!I.land) I.land = buildIntroLand();
-  sizeIntro(); introCv.style.display = "block"; introCv.style.opacity = 1;
-  I.phase = "pixels"; I.t = 0; landFull = true;
-  G.rx = G.trx = HOME.lat * Math.PI / 180; G.ry = G.try = -HOME.lon * Math.PI / 180;
-  G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
-  tStart = performance.now();
+  introCv.style.display = "block"; introCv.style.opacity = 1;
+  I.phase = "pixels"; I.t = 0; I.markers = 0; I.wrap = 0;
   altVal.textContent = "30 m"; altSub.textContent = "Champaign, 40.11° N, 88.24° W";
   altBox.classList.remove("out");
   setMode("intro");
@@ -1786,41 +1830,57 @@ function startIntro() {
 function updateIntro(dt) {
   I.t += dt;
   const t = I.t;
+  const lat0 = HOME.lat * Math.PI / 180, lon0 = -HOME.lon * Math.PI / 180;
   if (I.phase === "pixels") {
     const alt = introAlt(t);
     drawIntro(t, alt);
+    introCv.style.opacity = 1 - clamp((t - (IN_ZOOM - IN_X)) / IN_X, 0, 1);
     altVal.textContent = fmtAlt(t < IN_PIX ? 30 : alt);
-    if (alt > 400e3) altSub.textContent = "Illinois";
-    if (alt > 2000e3) altSub.textContent = "North America";
-    G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
-    if (t >= IN_ZOOM) { I.phase = "rise"; I.t = 0; tStart = performance.now() - 0.6e3; }
+    if (alt > 300e3) altSub.textContent = "Illinois";
+    if (alt > 1500e3) altSub.textContent = "North America";
+    G.rx = G.trx = lat0; G.ry = G.try = lon0;
+    G.dist = G.tdist = 1 + alt / R_EARTH;
+    I.wrap = 0;
+    if (t >= IN_ZOOM) { I.phase = "wrap"; I.t = 0; introCv.style.display = "none"; tStart = performance.now() + (IN_WRAP - 1.5) * 1000; }
     return;
   }
-  introCv.style.opacity = 1 - clamp(t / IN_FADE, 0, 1);
-  const r = clamp(t / IN_RISE, 0, 1), e = r * r * (3 - 2 * r);
-  const alt = Math.exp(Math.log(HAND_ALT) + (Math.log((homeDist() - 1) * R_EARTH) - Math.log(HAND_ALT)) * e);
+  if (I.phase === "wrap") {
+    const r = clamp(t / IN_WRAP, 0, 1), e = r * r * (3 - 2 * r);
+    const alt = Math.exp(Math.log(HAND_ALT) + (Math.log(WRAP_ALT) - Math.log(HAND_ALT)) * e);
+    G.dist = G.tdist = 1 + alt / R_EARTH;
+    const wr = clamp((t - 0.15) / (IN_WRAP - 0.2), 0, 1);
+    I.wrap = wr * wr * (3 - 2 * wr) * 1.06;
+    G.rx = G.trx = lat0; G.ry = G.try = lon0 + e * 0.12;
+    altVal.textContent = fmtAlt(alt);
+    if (alt > 6000e3) altSub.textContent = "Earth";
+    if (r >= 1) { I.phase = "out"; I.t = 0; }
+    return;
+  }
+  const r = clamp(t / IN_OUT, 0, 1), e = r * r * (3 - 2 * r);
+  const alt = Math.exp(Math.log(WRAP_ALT) + (Math.log((homeDist() - 1) * R_EARTH) - Math.log(WRAP_ALT)) * e);
   G.dist = G.tdist = 1 + alt / R_EARTH;
-  G.ry = G.try = -HOME.lon * Math.PI / 180 + e * 0.3;
-  G.rx = G.trx = HOME.lat * Math.PI / 180 + (0.42 - HOME.lat * Math.PI / 180) * e;
+  G.ry = G.try = lon0 + 0.12 + e * 0.2;
+  G.rx = G.trx = lat0 + (0.42 - lat0) * e;
+  I.wrap = 1.06; I.markers = clamp(t / 0.7, 0, 1);
   altVal.textContent = fmtAlt(alt);
-  if (alt > 9000e3) altSub.textContent = "Earth";
-  if (r > 0.55) altBox.classList.add("out");
+  if (r > 0.35) altBox.classList.add("out");
   if (r >= 1) endIntro(false);
 }
 function endIntro(skipped) {
   if (mode !== "intro") return;
   introCv.style.display = "none"; flash.style.opacity = 0;
+  I.wrap = 1.06; I.markers = 1;
   if (skipped) {
-    G.rx = G.trx = 0.42; G.ry = G.try = -HOME.lon * Math.PI / 180 + 0.3;
+    G.rx = G.trx = 0.42; G.ry = G.try = -HOME.lon * Math.PI / 180 + 0.32;
     G.dist = homeDist();
-    if (I.phase === "pixels") tStart = performance.now() - 1400;
+    if (performance.now() - tStart < 1400) tStart = performance.now() - 1400;
   }
   G.tdist = homeDist();
   I.phase = "off";
   setMode("globe");
   setTimeout(() => altBox.classList.remove("out"), 600);
   document.body.classList.add("ready");
-  setTimeout(showWelcome, skipped ? 900 : 1500);
+  setTimeout(showWelcome, skipped ? 900 : 1300);
 }
 $("skipIntro").addEventListener("click", e => { e.stopPropagation(); endIntro(true); });
 for (const ev of ["pointerdown", "wheel", "keydown", "touchstart"]) {
@@ -1833,9 +1893,9 @@ for (const ev of ["pointerdown", "wheel", "keydown", "touchstart"]) {
 }
 addEventListener("resize", () => { if (mode === "intro" || mode === "gate") sizeIntro(); });
 addEventListener("keydown", e => {
-  if (mode !== "gate" || cardState !== "gate" || e.key !== "Enter") return;
+  if (mode !== "gate" || e.key !== "Enter") return;
   if (document.activeElement && document.activeElement.closest && document.activeElement.closest("button")) return;
-  hideCard(); leaveGate();
+  leaveGate();
 });
 
 resize();
@@ -1864,15 +1924,10 @@ function showWelcome() {
     <div class="w-actions"><button type="button" class="w-hand" data-w="hand"><span>✋</span>Use my hand</button>
     <button type="button" class="w-skip" data-w="skip">I’ll use my mouse</button></div>`, "welcome");
 }
-function showGate() {
-  setCard(`<p><b>Hi, I’m Jiajia.</b> Every light on this planet is a place my work has taken me. Spin it, or <button type="button" class="inline" data-w="dive">dive in</button>. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
-    <div class="w-actions"><button type="button" class="w-hand w-go" data-w="go">Let’s connect<span aria-hidden="true">→</span></button></div>`, "gate");
-}
 function dismissWelcome() { if (cardState === "welcome") hideCard(); }
 welcome.addEventListener("click", e => {
   const b = e.target.closest("[data-w]"); if (!b) return;
   const w = b.dataset.w;
-  if (cardState === "gate") { hideCard(); leaveGate(); return; }
   if (w === "dive") { hideCard(); startDive(); }
   else if (w === "skip") { if (cardState === "coach") finishCoach(true); else hideCard(); }
   else if (w === "hand") {
