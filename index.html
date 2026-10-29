@@ -145,7 +145,7 @@
     opacity: 0; transition: opacity 1s 2.4s;
   }
   .ready .zoom { opacity: 1; }
-  [data-mode="dive"] .zoom, [data-mode="rise"] .zoom { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
+  [data-mode="dive"] .zoom, [data-mode="rise"] .zoom, [data-mode="intro"] .zoom { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
   .zoom button {
     min-width: 40px; height: 40px; padding: 0 12px;
     border-radius: 999px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px);
@@ -198,7 +198,7 @@
   .hud-grid { display: none; }
   [data-mode="grid"] .hud-globe { display: none; }
   [data-mode="grid"] .hud-grid { display: block; }
-  [data-mode="dive"] .hud, [data-mode="rise"] .hud { opacity: 0 !important; transition: opacity .3s; }
+  [data-mode="dive"] .hud, [data-mode="rise"] .hud, [data-mode="intro"] .hud { opacity: 0 !important; transition: opacity .3s; }
   .readouts { display: flex; gap: clamp(18px, 3vw, 36px); flex-wrap: wrap; }
   .readouts b {
     display: block; font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 500;
@@ -250,8 +250,12 @@
     pointer-events: none;
   }
   .welcome.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-  [data-mode="dive"] .welcome, [data-mode="rise"] .welcome, .focus .welcome { opacity: 0 !important; pointer-events: none !important; }
+  [data-mode="dive"] .welcome, [data-mode="rise"] .welcome, [data-mode="intro"] .welcome, .focus .welcome { opacity: 0 !important; pointer-events: none !important; }
   .welcome-on .hint { opacity: 0 !important; }
+  [data-mode="gate"] .ident, [data-mode="gate"] .facets, [data-mode="gate"] .hint, [data-mode="gate"] .topright,
+  [data-mode="gate"] .zoom, [data-mode="gate"] .hud { opacity: 0 !important; pointer-events: none !important; }
+  [data-mode="gate"] .welcome { z-index: 27; top: calc(50% + 64px); bottom: auto; width: min(560px, calc(100vw - 32px)); transform: translate(-50%, 12px); transition: opacity .9s, transform .9s; }
+  [data-mode="gate"] .welcome.show { transform: translate(-50%, 0); }
   .welcome p { margin: 0; font-size: .97rem; line-height: 1.55; color: #C9D0DB; }
   .welcome p b { color: var(--ink); font-weight: 600; }
   .welcome .inline {
@@ -269,6 +273,9 @@
   }
   .w-hand:hover { background: rgba(52, 210, 126, .3); }
   .w-hand span { font-size: 1.05rem; }
+  .w-go { padding: 9px 18px 9px 20px; }
+  .w-go span { transition: transform .25s; }
+  .w-go:hover span { transform: translateX(3px); }
   .w-skip { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: .86rem; padding: 4px 0; }
   .w-skip:hover { color: var(--ink); }
   .w-steps { display: flex; gap: 6px; margin-left: auto; }
@@ -283,7 +290,18 @@
     text-align: center; pointer-events: none;
     opacity: 0; transition: opacity .4s;
   }
-  [data-mode="dive"] .alt, [data-mode="rise"] .alt { opacity: 1; }
+  [data-mode="dive"] .alt, [data-mode="rise"] .alt, [data-mode="intro"] .alt { opacity: 1; }
+  [data-mode="intro"] .alt { top: auto; bottom: calc(9vh + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 0); transition: opacity .6s; }
+  [data-mode="intro"] .alt .val { font-size: clamp(2rem, 6vw, 4.4rem); }
+  .alt.out { opacity: 0 !important; }
+  #intro { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 23; pointer-events: none; display: none; }
+  .skip-intro {
+    position: fixed; right: 20px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 26;
+    background: none; border: 0; color: rgba(237, 239, 242, .45); font: inherit; font-size: .8rem; letter-spacing: .04em;
+    cursor: pointer; display: none; padding: 6px 8px;
+  }
+  .skip-intro:hover { color: rgba(237, 239, 242, .9); }
+  [data-mode="intro"] .skip-intro { display: block; }
   .alt .lab { font-size: .82rem; color: rgba(237, 239, 242, .8); letter-spacing: .02em; }
   .alt .val {
     font-family: "Unbounded", "Helvetica Neue", Arial, sans-serif; font-weight: 700;
@@ -292,7 +310,8 @@
   }
   .alt .sub { font-size: .9rem; color: rgba(237, 239, 242, .75); margin-top: 8px; }
   [data-mode="dive"] .ident, [data-mode="dive"] .facets, [data-mode="dive"] .hint,
-  [data-mode="rise"] .ident, [data-mode="rise"] .facets, [data-mode="rise"] .hint { opacity: 0 !important; transition: opacity .3s; }
+  [data-mode="rise"] .ident, [data-mode="rise"] .facets, [data-mode="rise"] .hint,
+  [data-mode="intro"] .ident, [data-mode="intro"] .facets, [data-mode="intro"] .hint, [data-mode="intro"] .topright { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
 
   /* ---------- reticle ---------- */
   #reticle { position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none; opacity: 0; transition: opacity .2s; }
@@ -445,7 +464,9 @@
 <div class="labels" id="globeLabels"></div>
 <div class="labels hidden" id="gridLabels"></div>
 <canvas id="pixels" aria-hidden="true"></canvas>
+<canvas id="intro" aria-hidden="true"></canvas>
 <div id="flash"></div>
+<button type="button" class="skip-intro" id="skipIntro">Skip intro</button>
 
 <header class="ident">
   <h1 class="name">Jiajia<br>Wang</h1>
@@ -497,7 +518,7 @@
 
 <p class="hint" id="hint">Drag to spin the planet. Click a place to see the work there.</p>
 
-<div class="alt" aria-hidden="true">
+<div class="alt" id="altBox" aria-hidden="true">
   <div class="lab">Altitude</div>
   <div class="val" id="altVal">14,000 km</div>
   <div class="sub" id="altSub">Chicago, 41.88° N, 87.63° W</div>
@@ -657,6 +678,9 @@ const LOCATIONS = [
     projects: [] },
   { id: "cremolino", name: "Cremolino, Italy", lat: 44.64, lon: 8.59, facet: "design", kind: "Rural landscape design studio",
     blurb: "Summer study abroad in 2019: a rural landscape design studio in Italy and France with the University of Illinois.",
+    projects: [] },
+  { id: "france", name: "France", lat: 46.6, lon: 2.4, facet: "design", kind: "Rural landscape design studio",
+    blurb: "The 2019 summer studio that began in Cremolino, Italy continued in France, reading rural landscapes on both sides of the Alps with the University of Illinois.",
     projects: [] },
   { id: "algarve", name: "Algarve, Portugal", lat: 37.19, lon: -8.44, facet: "design", kind: "UNESCO Global Geopark research",
     blurb: "Built the geological, hydrological, and cultural database for the Algarvensis UNESCO Global Geopark application (Loulé, Silves, and Albufeira) and surveyed historic water infrastructure with the Municipality of Silves.",
@@ -1355,7 +1379,7 @@ const CV = [
   ["Education", [
     "<b>PhD, Landscape Architecture (Technology Track)</b>, University of Illinois Urbana-Champaign, 2023–2027 (expected May 2027). <span>Advisor Prof. Brian Deal. Dissertation: Dynamic Pathways for Climate-Adaptive Landscape Planning.</span>",
     "<b>Master in Landscape Architecture II</b>, Harvard Graduate School of Design, 2023.",
-    "<b>Bachelor of Landscape Architecture, Highest Honors</b>, University of Illinois Urbana-Champaign, 2020. <span>Study abroad: University of Sheffield (2019) and a rural landscape studio in Cremolino, Italy (2019).</span>"]],
+    "<b>Bachelor of Landscape Architecture, Highest Honors</b>, University of Illinois Urbana-Champaign, 2020. <span>Study abroad: University of Sheffield (2019) and a rural landscape studio in Cremolino, Italy, and France (2019).</span>"]],
   ["Research appointments", [
     "<b>Associate Director and Graduate Research Assistant</b>, LEAM Laboratory, UIUC, 2023–present",
     "<b>Graduate Research Assistant</b>, Smart Energy Design Assistance Center (SEDAC), UIUC, 2023–2024 <span>Water and energy efficiency strategies with the EPA and under the Illinois Climate and Equitable Jobs Act.</span>",
@@ -1420,13 +1444,15 @@ const CV = [
     "Abstract reviewer, CELA 2026; PhD student representative, Student Advisory Committee, UIUC (2023–2024, 2025–2026)",
     "Co-founder and editor, Airing Books Gatherings, Harvard GSD (2021–2023); teaching fellow, Harvard Summit for Young Leaders in China (2020)",
     "Landscape designer, Illinois Solar Decathlon Team (2019–2020); volunteer instructor, Education Without Barriers (2020)"]],
-  ["Skills and languages", [
+  ["Skills, languages, and memberships", [
     "<b>Programming</b>: Python (scikit-learn, PyTorch, geospatial libraries), R, GAMS",
     "<b>Modeling</b>: machine and deep learning, LightGBM surrogates, Bayesian and multi-objective optimization, Monte Carlo, species distribution models",
     "<b>Geospatial</b>: ArcGIS Pro, QGIS, Google Earth Engine, remote sensing, NPP modeling, spatial statistics, geodesign",
     "<b>Environment</b>: greenhouse gas accounting, life cycle assessment (SimaPro, OpenLCA), carbon and climate risk analysis",
     "<b>Design</b>: AutoCAD, Rhino, Adobe Creative Cloud, construction documentation, dashboards",
-    "<b>Languages</b>: Mandarin (native), English (fluent), French (intermediate). LEED Green Associate; member of AAG, AGU, ISPRS, and ASLA."]],
+    "<b>Languages</b>: Mandarin (native), English (fluent), French (intermediate)",
+    "<b>Certification</b>: LEED Green Associate",
+    "<b>Memberships</b>: AAG, AGU, ISPRS, ASLA"]],
 ];
 function openProfile() {
   openId = "profile";
@@ -1470,7 +1496,7 @@ addEventListener("keydown", e => { if (e.key === "Escape" && openId) closePanel(
 const v3 = new THREE.Vector3(), coordEl = $("coord");
 const TYPE_NAME = { [CROP]: "Cropland", [NATURAL]: "Existing habitat", [DEV]: "Developed", [WATER]: "Lake Michigan", [FOREST]: "New forest", [GRASS]: "New grassland", [WET]: "New wetland" };
 let last = performance.now();
-const tStart = performance.now();
+let tStart = performance.now();
 
 function resize() {
   W = innerWidth; H = innerHeight;
@@ -1485,7 +1511,9 @@ function resize() {
 addEventListener("resize", resize);
 
 function frameGlobe(t, dt) {
-  if (mode === "dive" || mode === "rise") updateDive(dt);
+  if (mode === "gate") { I.t += dt; drawIntro(0.2, 30); }
+  else if (mode === "intro") updateIntro(dt);
+  else if (mode === "dive" || mode === "rise") updateDive(dt);
   else {
     if (!dragging && !openId && !reduceMotion) G.try += dt * 0.06;
     const k = 1 - Math.pow(0.003, dt);
@@ -1498,7 +1526,7 @@ function frameGlobe(t, dt) {
   dotMat.uniforms.uTime.value = t;
   dotMat.uniforms.uSize.value = 0.012 * dotSizeMul();
   const mf = markerFade();
-  dotMat.uniforms.uReveal.value = reduceMotion ? 2 : clamp((t - 0.2) / 2.2, 0, 1.2);
+  dotMat.uniforms.uReveal.value = (reduceMotion || landFull) ? 2 : clamp((t - 0.2) / 2.2, 0, 1.2);
   const fadeNear = clamp((G.dist - 1.002) / 0.05, 0, 1);
   ocean.material.uniforms.uFade.value = 0.35 + 0.65 * fadeNear;
   atmo.material.uniforms.uFade.value = fadeNear;
@@ -1605,12 +1633,216 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+/* ---------- opening: from one 30 m pixel to the planet ---------- */
+const HOME = { lat: 40.11, lon: -88.24 };
+const introCv = $("intro"), ictx = introCv.getContext("2d"), altBox = $("altBox");
+const I = { phase: "off", t: 0, land: null };
+const IN_PIX = 0.7, IN_ZOOM = 3.0, IN_FADE = 0.45, IN_RISE = 1.9, HAND_ALT = 5200e3;
+let landFull = false;
+function sizeIntro() {
+  const d = Math.min(devicePixelRatio || 1, 2);
+  introCv.width = innerWidth * d; introCv.height = innerHeight * d;
+  ictx.setTransform(d, 0, 0, d, 0, 0);
+}
+function buildIntroLand() {
+  const MW = 512, MH = 256, out = [];
+  const rx = HOME.lat * Math.PI / 180, ry = -HOME.lon * Math.PI / 180;
+  const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
+  for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
+    const k = j * MW + i;
+    if (!((MASK[k >> 3] >> (k & 7)) & 1)) continue;
+    const lat = (90 - (j + 0.5) / MH * 180) * Math.PI / 180, lon = ((i + 0.5) / MW * 360 - 180) * Math.PI / 180;
+    let x = Math.cos(lat) * Math.sin(lon), y = Math.sin(lat), z = Math.cos(lat) * Math.cos(lon);
+    const x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+    const y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx;
+    out.push(x1, y2, z2, hash(i, j));
+  }
+  return new Float32Array(out);
+}
+function introCell(i, j, lvl) {
+  const n = fbm(i / 6 + lvl * 13.1, j / 6 + lvl * 7.7), r = hash(i * 17 + lvl * 101, j * 31 + lvl * 57);
+  // a cool, near-black data field: water darkest, vegetation teal, land navy
+  const fill = n > 0.7 ? "#050A14" : n > 0.58 ? "#0B2027" : n < 0.28 ? "#111B2E" : (r < 0.5 ? "#0C1628" : "#0E1A30");
+  const dot = r > 0.9 ? (n > 0.58 && n <= 0.7 ? "#5FE0C2" : "#9DB6E6") : null;
+  return [fill, dot, r];
+}
+function introAlt(t) {
+  const u = clamp((t - IN_PIX) / (IN_ZOOM - IN_PIX), 0, 1), e = u * u * (3 - 2 * u);
+  return Math.exp(Math.log(30) + (Math.log(HAND_ALT) - Math.log(30)) * e);
+}
+function drawIntro(t, alt) {
+  const w = innerWidth, h = innerHeight, cx = w / 2, cy = h / 2;
+  const F = (h / 2) / Math.tan(gCam.fov * Math.PI / 360);
+  ictx.globalAlpha = 1; ictx.fillStyle = "#04070E"; ictx.fillRect(0, 0, w, h);
+  // the planet seen from this altitude, with the same camera as the real globe
+  const d = 1 + alt / R_EARTH, landA = clamp(Math.log(alt / 180e3) / Math.log(1400e3 / 180e3), 0, 1);
+  if (landA > 0) {
+    const rs = F / Math.sqrt(d * d - 1);
+    ictx.globalAlpha = landA * clamp(Math.log(alt / 900e3) / Math.log(4), 0, 1); ictx.fillStyle = "#081426";
+    ictx.beginPath(); ictx.arc(cx, cy, Math.min(rs, Math.hypot(w, h)), 0, Math.PI * 2); ictx.fill();
+    const L = I.land, cell = 0.0123, zmin = 1 / d;
+    for (let k = 0; k < L.length; k += 4) {
+      const z = L[k + 2]; if (z <= zmin) continue;
+      const q = F / (d - z), x = cx + L[k] * q, y = cy - L[k + 1] * q;
+      const sz = clamp(cell * q * 0.42, 1.3, 3.2);
+      if (x < -sz || x > w + sz || y < -sz || y > h + sz) continue;
+      const lum = 0.55 + 0.45 * Math.min(1, (z - zmin) / (1 - zmin) * 3);
+      ictx.globalAlpha = landA * lum * (0.7 + 0.3 * L[k + 3]);
+      ictx.fillStyle = L[k + 3] > 0.93 ? "#5FE0C2" : "#9DB7D3";
+      ictx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+    }
+  }
+  // farmland pixels, one octave inside the next
+  const gridA = 1 - clamp(Math.log(alt / 500e3) / Math.log(2600e3 / 500e3), 0, 1);
+  if (gridA > 0) {
+    const base = Math.max(26, Math.min(w, h) * 0.05);
+    const span = Math.log(alt / 30) / Math.log(6), lvl = Math.floor(span), fr = span - lvl;
+    const grow = clamp((t - IN_PIX + 0.15) / 0.5, 0, 1);
+    for (let Lv = 0; Lv < 2; Lv++) {
+      const lv = lvl + Lv, cs = base * Math.pow(6, lv) * 30 / alt;
+      const al = (Lv === 0 ? 1 - clamp((fr - 0.55) / 0.45, 0, 1) : clamp((fr - 0.35) / 0.5, 0, 1)) * gridA;
+      if (cs < 2.5 || al <= 0) continue;
+      const n = Math.ceil(Math.max(w, h) / cs / 2) + 1, gap = cs > 10 ? 1 : 0;
+      for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+        if (lv === 0 && i === 0 && j === 0) continue;
+        const dd = Math.hypot(i, j);
+        if (lv === 0 && dd > grow * (n + 3)) continue;
+        const a0 = al * (lv === 0 ? clamp(grow * (n + 3) - dd, 0, 1) : 1);
+        const [fill, dot, r] = introCell(i, j, lv);
+        const x = cx + i * cs - cs / 2, y = cy + j * cs - cs / 2;
+        ictx.globalAlpha = a0; ictx.fillStyle = fill;
+        ictx.fillRect(x + gap, y + gap, cs - gap, cs - gap);
+        if (dot) {
+          const ds = Math.max(1.2, cs * 0.16);
+          ictx.globalAlpha = a0 * (0.55 + 0.45 * Math.sin(t * 3 + r * 40));
+          ictx.fillStyle = dot; ictx.fillRect(x + cs / 2 - ds / 2, y + cs / 2 - ds / 2, ds, ds);
+        }
+      }
+      if (cs > 5) {
+        ictx.globalAlpha = al * 0.5 * (lv === 0 ? grow : 1); ictx.strokeStyle = "rgba(120, 160, 255, .16)"; ictx.lineWidth = 1;
+        ictx.beginPath();
+        const ox = ((cx - cs / 2) % cs + cs) % cs, oy = ((cy - cs / 2) % cs + cs) % cs;
+        for (let x = ox; x < w; x += cs) { ictx.moveTo(Math.round(x) + .5, 0); ictx.lineTo(Math.round(x) + .5, h); }
+        for (let y = oy; y < h; y += cs) { ictx.moveTo(0, Math.round(y) + .5); ictx.lineTo(w, Math.round(y) + .5); }
+        ictx.stroke();
+      }
+    }
+    // the first pixel: glowing cell, crosshair and corner brackets
+    const c0 = Math.max(2, base * 30 / alt), pa = Math.min(1, gridA * 1.5);
+    const blink = I.phase === "gate" ? 0.7 + 0.3 * Math.sin(performance.now() / 1000 * 2.6) : t < IN_PIX ? 0.6 + 0.4 * Math.sin(t * 9) : 1;
+    ictx.globalAlpha = pa * 0.35 * clamp(1 - (alt - 30) / 300, 0, 1);
+    ictx.strokeStyle = "#34D27E"; ictx.lineWidth = 1; ictx.beginPath();
+    ictx.moveTo(0, cy + .5); ictx.lineTo(cx - c0, cy + .5); ictx.moveTo(cx + c0, cy + .5); ictx.lineTo(w, cy + .5);
+    ictx.moveTo(cx + .5, 0); ictx.lineTo(cx + .5, cy - c0); ictx.moveTo(cx + .5, cy + c0); ictx.lineTo(cx + .5, h);
+    ictx.stroke();
+    ictx.globalAlpha = pa * blink;
+    ictx.fillStyle = "#34D27E"; ictx.shadowColor = "rgba(52, 210, 126, .95)"; ictx.shadowBlur = c0 > 4 ? 28 : 14;
+    ictx.fillRect(cx - c0 / 2, cy - c0 / 2, c0, c0); ictx.shadowBlur = 0;
+    const br = c0 / 2 + 7 + 4 * (1 - grow), bl = Math.max(5, c0 * 0.3);
+    ictx.globalAlpha = pa * clamp(1 - (alt - 30) / 150, 0, 1); ictx.strokeStyle = "#BFF5D8"; ictx.lineWidth = 1.2; ictx.beginPath();
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      ictx.moveTo(cx + sx * br, cy + sy * (br - bl)); ictx.lineTo(cx + sx * br, cy + sy * br); ictx.lineTo(cx + sx * (br - bl), cy + sy * br);
+    }
+    ictx.stroke();
+    ictx.font = "500 11px ui-monospace, SFMono-Regular, Menlo, monospace"; ictx.fillStyle = "#BFF5D8";
+    ictx.fillText("30 × 30 m", cx + br + 8, cy - br + 10);
+    if (I.phase !== "gate" && t < IN_PIX + 0.2) {
+      const sy = (t / (IN_PIX + 0.2)) * h;
+      const sg = ictx.createLinearGradient(0, sy - 60, 0, sy);
+      sg.addColorStop(0, "rgba(52,210,126,0)"); sg.addColorStop(1, "rgba(52,210,126,.10)");
+      ictx.globalAlpha = 1; ictx.fillStyle = sg; ictx.fillRect(0, sy - 60, w, 60);
+    }
+    const vg = ictx.createRadialGradient(cx, cy, Math.min(w, h) * 0.2, cx, cy, Math.hypot(w, h) * 0.6);
+    vg.addColorStop(0, "rgba(4,7,14,0)"); vg.addColorStop(1, "rgba(4,7,14,.9)");
+    ictx.globalAlpha = gridA; ictx.fillStyle = vg; ictx.fillRect(0, 0, w, h);
+  }
+  ictx.globalAlpha = 1;
+}
+function startGate() {
+  if (!I.land) I.land = buildIntroLand();
+  sizeIntro(); introCv.style.display = "block"; introCv.style.opacity = 1;
+  I.phase = "gate"; I.t = 0;
+  G.rx = G.trx = HOME.lat * Math.PI / 180; G.ry = G.try = -HOME.lon * Math.PI / 180;
+  G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
+  setMode("gate");
+  setTimeout(showGate, reduceMotion ? 0 : 500);
+}
+function leaveGate() {
+  if (mode !== "gate") return;
+  if (reduceMotion) { setMode("intro"); endIntro(true); return; }
+  startIntro();
+}
+function startIntro() {
+  if (!I.land) I.land = buildIntroLand();
+  sizeIntro(); introCv.style.display = "block"; introCv.style.opacity = 1;
+  I.phase = "pixels"; I.t = 0; landFull = true;
+  G.rx = G.trx = HOME.lat * Math.PI / 180; G.ry = G.try = -HOME.lon * Math.PI / 180;
+  G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
+  tStart = performance.now();
+  altVal.textContent = "30 m"; altSub.textContent = "Champaign, 40.11° N, 88.24° W";
+  altBox.classList.remove("out");
+  setMode("intro");
+}
+function updateIntro(dt) {
+  I.t += dt;
+  const t = I.t;
+  if (I.phase === "pixels") {
+    const alt = introAlt(t);
+    drawIntro(t, alt);
+    altVal.textContent = fmtAlt(t < IN_PIX ? 30 : alt);
+    if (alt > 400e3) altSub.textContent = "Illinois";
+    if (alt > 2000e3) altSub.textContent = "North America";
+    G.dist = G.tdist = 1 + HAND_ALT / R_EARTH;
+    if (t >= IN_ZOOM) { I.phase = "rise"; I.t = 0; tStart = performance.now() - 0.6e3; }
+    return;
+  }
+  introCv.style.opacity = 1 - clamp(t / IN_FADE, 0, 1);
+  const r = clamp(t / IN_RISE, 0, 1), e = r * r * (3 - 2 * r);
+  const alt = Math.exp(Math.log(HAND_ALT) + (Math.log((homeDist() - 1) * R_EARTH) - Math.log(HAND_ALT)) * e);
+  G.dist = G.tdist = 1 + alt / R_EARTH;
+  G.ry = G.try = -HOME.lon * Math.PI / 180 + e * 0.3;
+  G.rx = G.trx = HOME.lat * Math.PI / 180 + (0.42 - HOME.lat * Math.PI / 180) * e;
+  altVal.textContent = fmtAlt(alt);
+  if (alt > 9000e3) altSub.textContent = "Earth";
+  if (r > 0.55) altBox.classList.add("out");
+  if (r >= 1) endIntro(false);
+}
+function endIntro(skipped) {
+  if (mode !== "intro") return;
+  introCv.style.display = "none"; flash.style.opacity = 0;
+  if (skipped) {
+    G.rx = G.trx = 0.42; G.ry = G.try = -HOME.lon * Math.PI / 180 + 0.3;
+    G.dist = homeDist();
+    if (I.phase === "pixels") tStart = performance.now() - 1400;
+  }
+  G.tdist = homeDist();
+  I.phase = "off";
+  setMode("globe");
+  setTimeout(() => altBox.classList.remove("out"), 600);
+  document.body.classList.add("ready");
+  setTimeout(showWelcome, skipped ? 900 : 1500);
+}
+$("skipIntro").addEventListener("click", e => { e.stopPropagation(); endIntro(true); });
+for (const ev of ["pointerdown", "wheel", "keydown", "touchstart"]) {
+  addEventListener(ev, e => {
+    if (mode !== "intro") return;
+    if (ev === "keydown" && (e.key === "Tab" || e.metaKey || e.ctrlKey || e.altKey)) return;
+    e.stopImmediatePropagation(); if (ev !== "touchstart" && e.cancelable) e.preventDefault();
+    endIntro(true);
+  }, { capture: true, passive: false });
+}
+addEventListener("resize", () => { if (mode === "intro" || mode === "gate") sizeIntro(); });
+addEventListener("keydown", e => {
+  if (mode !== "gate" || cardState !== "gate" || e.key !== "Enter") return;
+  if (document.activeElement && document.activeElement.closest && document.activeElement.closest("button")) return;
+  hideCard(); leaveGate();
+});
+
 resize();
 G.tdist = homeDist();
 (async () => {
   try { await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]); } catch {}
-  document.body.classList.add("ready");
-  setTimeout(showWelcome, reduceMotion ? 400 : 2600);
+  startGate();
   requestAnimationFrame(frame);
 })();
 
@@ -1628,14 +1860,19 @@ function hideCard() {
 }
 function showWelcome() {
   if (cardState !== "none" || mode !== "globe" || openId || P.hand) return;
-  setCard(`<p><b>Hi, I’m Jiajia.</b> Every light on this planet is a place my work has taken me. Spin it, or <button type="button" class="inline" data-w="dive">dive in</button>. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
-    <div class="w-actions"><button type="button" class="w-hand" data-w="hand"><span>✋</span>Try it with your hand</button>
+  setCard(`<p><b>How would you like to explore?</b> Spin the planet and open the lights with your hand in front of the camera, or with your mouse.</p>
+    <div class="w-actions"><button type="button" class="w-hand" data-w="hand"><span>✋</span>Use my hand</button>
     <button type="button" class="w-skip" data-w="skip">I’ll use my mouse</button></div>`, "welcome");
+}
+function showGate() {
+  setCard(`<p><b>Hi, I’m Jiajia.</b> Every light on this planet is a place my work has taken me. Spin it, or <button type="button" class="inline" data-w="dive">dive in</button>. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
+    <div class="w-actions"><button type="button" class="w-hand w-go" data-w="go">Let’s connect<span aria-hidden="true">→</span></button></div>`, "gate");
 }
 function dismissWelcome() { if (cardState === "welcome") hideCard(); }
 welcome.addEventListener("click", e => {
   const b = e.target.closest("[data-w]"); if (!b) return;
   const w = b.dataset.w;
+  if (cardState === "gate") { hideCard(); leaveGate(); return; }
   if (w === "dive") { hideCard(); startDive(); }
   else if (w === "skip") { if (cardState === "coach") finishCoach(true); else hideCard(); }
   else if (w === "hand") {
@@ -1656,6 +1893,7 @@ function renderCoach() {
   setCard(`<p>${COACH[coachStep].html}</p><div class="w-actions"><button type="button" class="w-skip" data-w="skip">Skip the tour</button><span class="w-steps">${dots}</span></div>`, "coach");
 }
 function startCoach() {
+  if (mode === "intro" || mode === "gate") return;
   if (coachDone || coachStep >= 0 || mode === "dive" || mode === "rise") { if (cardState === "waiting") hideCard(); return; }
   coachStep = 0; coachMove = coachDrag = 0; renderCoach();
 }
@@ -1766,6 +2004,7 @@ function drawSkeleton(lm) {
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const controlAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest("button, a"); };
 function handPress() {
+  if (mode === "intro" || mode === "gate") return;
   const ctl = controlAt(P.x, P.y);
   if (ctl && !ctl.closest("#cam")) { P.down = true; ctl.click(); return; }
   const el = document.elementFromPoint(P.x, P.y);
