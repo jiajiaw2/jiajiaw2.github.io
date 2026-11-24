@@ -405,6 +405,7 @@
   .p-body { margin: 0 0 20px; color: #C9D0DB; font-size: .97rem; }
   .p-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
   .p-tags span { font-size: .8rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .p-book { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; color: hsl(var(--ph, var(--h)) 85% 70%); font-weight: 500; margin-right: 14px; border-bottom: 1px solid currentColor; }
   .p-links a { color: hsl(var(--ph, var(--h)) 85% 70%); font-weight: 500; margin-right: 14px; }
   .p-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 26px; }
   .p-actions button { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px; cursor: pointer; }
@@ -479,6 +480,45 @@
     .name, .fade, .facets, .hud, .hint, .panel { transition: none; }
     #diveBtn .sq { animation: none; }
   }
+  /* ---------- portfolio reader ---------- */
+  .book { position: fixed; inset: 0; z-index: 35; display: none; flex-direction: column; background: rgba(3, 5, 10, .96);
+    backdrop-filter: blur(6px); opacity: 0; transition: opacity .35s; }
+  .book.on { display: flex; }
+  .book.show { opacity: 1; }
+  .bk-top { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bk-title { margin: 0; font-size: .95rem; font-weight: 600; color: var(--ink); margin-right: auto; }
+  .bk-title span { color: var(--muted); font-weight: 400; margin-left: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; letter-spacing: .06em; }
+  .bk-ch { display: flex; gap: 4px; flex-wrap: wrap; }
+  .bk-ch button, .bk-btn { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: .8rem; cursor: pointer; text-decoration: none; transition: color .2s, border-color .2s, background .2s; }
+  .bk-ch button:hover, .bk-btn:hover { color: var(--ink); border-color: rgba(237, 239, 242, .4); }
+  .bk-ch button.cur { color: #04110A; background: var(--forest); border-color: var(--forest); }
+  .bk-close { font-size: 1.1rem; padding: 4px 12px; }
+  .bk-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 18px 70px; touch-action: pan-y; }
+  .bk-page { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 0 1px rgba(237, 239, 242, .06);
+    transition: opacity .25s, transform .35s cubic-bezier(.2, .8, .2, 1); background: #0b0f18; }
+  .bk-page.out { opacity: 0; transform: translateX(var(--dx, 0)) scale(.985); }
+  .bk-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line);
+    background: rgba(10, 14, 22, .7); color: var(--ink); font-size: 1.3rem; cursor: pointer; display: grid; place-items: center; }
+  .bk-nav:hover { border-color: var(--forest); color: var(--forest); }
+  .bk-nav:disabled { opacity: .25; cursor: default; }
+  .bk-prev { left: 12px; } .bk-next { right: 12px; }
+  .bk-spin { position: absolute; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--forest); animation: bkspin .8s linear infinite; opacity: 0; }
+  .book.loading .bk-spin { opacity: 1; }
+  @keyframes bkspin { to { transform: rotate(360deg); } }
+  .bk-strip { display: flex; gap: 8px; padding: 10px 18px 14px; overflow-x: auto; scrollbar-width: thin; border-top: 1px solid var(--line); }
+  .bk-strip button { flex: 0 0 auto; padding: 0; border: 2px solid transparent; border-radius: 4px; background: #0b0f18; cursor: pointer; opacity: .55; transition: opacity .2s, border-color .2s; }
+  .bk-strip button:hover { opacity: .9; }
+  .bk-strip button.cur { border-color: var(--forest); opacity: 1; }
+  .bk-th { --w: 92px; --h: 71px; display: block; width: var(--w); height: var(--h); border-radius: 2px;
+    background: #0b0f18 url(portfolio/thumbs.webp) no-repeat; background-size: calc(var(--w) * 10) calc(var(--h) * 5);
+    background-position: calc(var(--c) * var(--w) * -1) calc(var(--r) * var(--h) * -1) !important; }
+  @media (max-width: 700px) {
+    .bk-stage { padding: 10px 8px; }
+    .bk-nav { width: 40px; height: 40px; background: rgba(10, 14, 22, .85); }
+    .bk-prev { left: 4px; } .bk-next { right: 4px; }
+    .bk-th { --w: 64px; --h: 49px; }
+    .bk-title span { display: block; margin: 2px 0 0; }
+  }
 </style>
 </head>
 <body data-mode="globe">
@@ -489,6 +529,21 @@
 <div class="labels" id="globeLabels"></div>
 <div class="labels hidden" id="gridLabels"></div>
 <canvas id="pixels" aria-hidden="true"></canvas>
+<div class="book" id="book" role="dialog" aria-modal="true" aria-labelledby="bkTitle">
+  <div class="bk-top">
+    <p class="bk-title" id="bkTitle">Portfolio 2026<span id="bkNum">1 / 47</span></p>
+    <div class="bk-ch" id="bkCh"></div>
+    <a class="bk-btn" href="portfolio/Jiajia_Wang_Portfolio_2026.pdf" download>Download PDF</a>
+    <button type="button" class="bk-btn bk-close" id="bkClose" aria-label="Close portfolio">✕</button>
+  </div>
+  <div class="bk-stage" id="bkStage">
+    <div class="bk-spin" aria-hidden="true"></div>
+    <img class="bk-page" id="bkImg" alt="">
+    <button type="button" class="bk-nav bk-prev" id="bkPrev" aria-label="Previous page">←</button>
+    <button type="button" class="bk-nav bk-next" id="bkNext" aria-label="Next page">→</button>
+  </div>
+  <div class="bk-strip" id="bkStrip"></div>
+</div>
 <canvas id="intro" aria-hidden="true"></canvas>
 <div class="gate" id="gate">
   <p class="gate-text"><b>Hi, I’m Jiajia.</b>Every light on this planet is a place my work has taken me. Every place here started as a question. Bring me yours, and let’s light up the next one together.</p>
@@ -507,6 +562,7 @@
     <a href="https://scholar.google.com/citations?user=DYPxNhgAAAAJ&hl=en" target="_blank" rel="noopener">Scholar</a>
     <a href="https://www.jiajiawang.site/curriculum-vitae" target="_blank" rel="noopener">CV</a>
     <button type="button" class="linkbtn" id="profileBtn">Full profile</button>
+    <button type="button" class="linkbtn" id="bookBtn">Portfolio</button>
   </nav>
 </header>
 
@@ -1401,6 +1457,7 @@ facetsEl.addEventListener("click", e => {
 renderFacets();
 
 const panel = $("panel");
+const BOOK_PAGES = { barrio: 9, kora: 15, greens: 23, "urban-flux": 31, "the-tear": 39 };
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 function projectHTML(id, asSection) {
   const p = PROJECTS[id], f = FACETS[p.facet];
@@ -1412,7 +1469,7 @@ function projectHTML(id, asSection) {
     <p class="p-qlabel">The question</p><p class="p-q">${esc(p.question)}</p>
     <p class="p-body">${esc(p.body)}</p>
     <div class="p-tags">${p.tags.map(t => `<span>${esc(t)}</span>`).join("")}</div>
-    <div class="p-links">${p.links.map(l => `<a href="${l.url}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}</div></div>`;
+    <div class="p-links">${BOOK_PAGES[id] ? `<button type="button" class="p-book" data-book="${BOOK_PAGES[id]}">See it in the portfolio →</button>` : ""}${p.links.map(l => `<a href="${l.url}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("")}</div></div>`;
 }
 function showPanel(html, hue) {
   panel.style.setProperty("--h", hue);
@@ -1511,6 +1568,88 @@ function openProfile() {
   showPanel(html, 150);
 }
 document.getElementById("profileBtn").addEventListener("click", openProfile);
+
+/* ---------- portfolio reader: pages rendered from the PDF, loaded on demand ---------- */
+const BOOK = { n: 47, dir: "portfolio/", chapters: [["Cover", 1], ["About", 2], ["Research", 4], ["Design", 8]], page: 1, open: false };
+const bookEl = $("book"), bkImg = $("bkImg"), bkStrip = $("bkStrip"), bkCh = $("bkCh");
+const pad2 = n => String(n).padStart(2, "0");
+const bkCache = new Map();
+function bkLoad(n) {
+  if (n < 1 || n > BOOK.n) return null;
+  if (!bkCache.has(n)) { const im = new Image(); im.decoding = "async"; im.src = BOOK.dir + pad2(n) + ".webp"; bkCache.set(n, im); }
+  return bkCache.get(n);
+}
+function bkBuild() {
+  if (bkStrip.childElementCount) return;
+  BOOK.chapters.forEach(([name, pg]) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = name; b.dataset.p = pg; bkCh.appendChild(b);
+  });
+  for (let i = 1; i <= BOOK.n; i++) {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.p = i; b.setAttribute("aria-label", "Page " + i);
+    const im = document.createElement("span"); im.className = "bk-th";
+    im.style.setProperty("--c", (i - 1) % 10); im.style.setProperty("--r", Math.floor((i - 1) / 10));
+    b.appendChild(im); bkStrip.appendChild(b);
+  }
+}
+function bkShow(n, dir = 0) {
+  n = clamp(n, 1, BOOK.n); const prev = BOOK.page; BOOK.page = n;
+  const im = bkLoad(n);
+  $("bkNum").textContent = n + " / " + BOOK.n;
+  $("bkPrev").disabled = n === 1; $("bkNext").disabled = n === BOOK.n;
+  bkImg.alt = "Portfolio page " + n;
+  const swap = () => {
+    bookEl.classList.remove("loading");
+    bkImg.src = im.src; bkImg.style.setProperty("--dx", "0px");
+    requestAnimationFrame(() => bkImg.classList.remove("out"));
+  };
+  if (dir && prev !== n) { bkImg.style.setProperty("--dx", (dir > 0 ? -24 : 24) + "px"); bkImg.classList.add("out"); }
+  const ready = () => setTimeout(swap, dir && prev !== n ? 160 : 0);
+  if (im.complete && im.naturalWidth) ready(); else { bookEl.classList.add("loading"); im.onload = ready; }
+  [n + 1, n + 2, n - 1].forEach(bkLoad);
+  bkStrip.querySelectorAll("button").forEach(b => b.classList.toggle("cur", +b.dataset.p === n));
+  const cur = bkStrip.children[n - 1]; if (cur) cur.scrollIntoView({ block: "nearest", inline: "center", behavior: BOOK.open ? "smooth" : "auto" });
+  let ch = BOOK.chapters[0][1]; BOOK.chapters.forEach(([, pg]) => { if (n >= pg) ch = pg; });
+  bkCh.querySelectorAll("button").forEach(b => b.classList.toggle("cur", +b.dataset.p === ch));
+}
+let bkReturn = null;
+function openBook(n) {
+  if (openId) closePanel();
+  bkBuild(); bkReturn = document.activeElement;
+  bookEl.classList.add("on"); requestAnimationFrame(() => bookEl.classList.add("show"));
+  bkShow(n || BOOK.page); BOOK.open = true;
+  $("bkClose").focus({ preventScroll: true });
+}
+function closeBook() {
+  if (!BOOK.open) return; BOOK.open = false;
+  bookEl.classList.remove("show"); setTimeout(() => bookEl.classList.remove("on"), 350);
+  if (bkReturn && bkReturn.focus) bkReturn.focus({ preventScroll: true });
+}
+$("bookBtn").addEventListener("click", () => openBook());
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-book]"); if (b) openBook(+b.dataset.book); });
+$("bkClose").addEventListener("click", closeBook);
+$("bkPrev").addEventListener("click", () => bkShow(BOOK.page - 1, -1));
+$("bkNext").addEventListener("click", () => bkShow(BOOK.page + 1, 1));
+bkStrip.addEventListener("click", e => { const b = e.target.closest("button"); if (b) bkShow(+b.dataset.p, +b.dataset.p > BOOK.page ? 1 : -1); });
+bkCh.addEventListener("click", e => { const b = e.target.closest("button"); if (b) bkShow(+b.dataset.p, +b.dataset.p > BOOK.page ? 1 : -1); });
+addEventListener("keydown", e => {
+  if (!BOOK.open) return;
+  const k = e.key;
+  if (k === "Escape") closeBook();
+  else if (k === "ArrowRight" || k === "PageDown" || k === " ") bkShow(BOOK.page + 1, 1);
+  else if (k === "ArrowLeft" || k === "PageUp") bkShow(BOOK.page - 1, -1);
+  else if (k === "Home") bkShow(1, -1);
+  else if (k === "End") bkShow(BOOK.n, 1);
+  else if (k !== "Tab") return;
+  if (k !== "Tab") { e.preventDefault(); e.stopImmediatePropagation(); }
+}, true);
+{ // swipe on touch screens
+  let sx = null, sy = 0;
+  $("bkStage").addEventListener("touchstart", e => { if (e.touches.length === 1) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; } }, { passive: true });
+  $("bkStage").addEventListener("touchend", e => {
+    if (sx === null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.3) bkShow(BOOK.page + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
 function openPlace(id) {
   if (P.hand) coachEvent("open"); else dismissWelcome();
   const L = LOCATIONS.find(l => l.id === id); openId = "place:" + id;
